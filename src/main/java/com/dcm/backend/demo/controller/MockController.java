@@ -34,6 +34,30 @@ public class MockController {
             return ResponseEntity.noContent().build(); // 204
         }
 
-        return ResponseEntity.ok(Map.of("dockerImage", "hello-world"));
+        return ResponseEntity.ok(
+                Map.of(
+                        "jobId", "job123",
+                        "dockerImage", "hello-world",
+                        "fileUrl", "http://localhost:8080/files/input.txt"
+                )
+        );
+    }
+
+    @GetMapping("/files/input.txt")
+    public String file() {
+        return "Sample training data";
+    }
+
+    @PostMapping("/jobs/result")
+    public String uploadResult(
+            @RequestParam String jobId,
+            @RequestBody byte[] body) {
+
+        String logs = new String(body);
+
+        System.out.println("Result for job " + jobId + ":");
+        System.out.println(logs);
+
+        return "ok";
     }
 }
