@@ -23,4 +23,16 @@ public class MockController {
 
         return "ok";
     }
+
+    @GetMapping("/jobs/poll")
+    public ResponseEntity<?> pollJob() {
+
+        boolean hasJob = Math.random() > 0.5; // 50% chance
+
+        if (!hasJob) {
+            return ResponseEntity.noContent().build(); // 204
+        }
+
+        return ResponseEntity.ok(Map.of("dockerImage", "hello-world"));
+    }
 }
