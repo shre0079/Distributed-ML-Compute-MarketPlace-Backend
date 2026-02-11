@@ -93,6 +93,20 @@ public class MockController {
         return "ok";
     }
 
-    
+    @Scheduled(fixedRate = 5000)
+    public void checkDeadWorkers() {
+
+        long now = System.currentTimeMillis();
+
+        for (var entry : workerLastSeen.entrySet()) {
+
+            long last = entry.getValue();
+
+            if (now - last > 15000) { // 15 seconds timeout
+                System.out.println("Worker DEAD: " + entry.getKey());
+            }
+        }
+    }
+
 
 }
