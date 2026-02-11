@@ -1,10 +1,17 @@
 package com.dcm.backend.demo.controller;
 
+import com.dcm.backend.demo.dto.Job;
 import com.dcm.backend.demo.dto.WorkerInfo;
+import com.dcm.backend.demo.enums.JobStatus;
+import jakarta.annotation.PostConstruct;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 public class MockController {
@@ -38,7 +45,7 @@ public class MockController {
     @GetMapping("/jobs/poll")
     public ResponseEntity<?> pollJob() {
 
-        boolean hasJob = Math.random() > 0.5; // 50% chance
+        for (Job job : jobs.values()) {
 
             if (job.status == JobStatus.CREATED) {
                 job.status = JobStatus.RUNNING;  // 🔥 mark running
@@ -46,13 +53,7 @@ public class MockController {
             }
         }
 
-        return ResponseEntity.ok(
-                Map.of(
-                        "jobId", "job123",
-                        "dockerImage", "hello-world",
-                        "fileUrl", "http://localhost:8080/files/input.txt"
-                )
-        );
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/files/input.txt")
@@ -73,8 +74,10 @@ public class MockController {
 
         String logs = new String(body);
 
-        System.out.println("Result for job " + jobId + ":");
-        System.out.println(logs);
+        Files.createDirectories(Path.of("results"));
+        Files.writeString(Path.of("results", jobId + ".log"), logs);
+
+        System.out.println("Job " + jobId + " SUCCESS");
 
         return "ok";
     }
