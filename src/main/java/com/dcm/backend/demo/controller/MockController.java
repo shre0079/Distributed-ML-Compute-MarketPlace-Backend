@@ -63,7 +63,13 @@ public class MockController {
     @PostMapping("/jobs/result")
     public String uploadResult(
             @RequestParam String jobId,
-            @RequestBody byte[] body) {
+            @RequestBody byte[] body) throws Exception {
+
+        Job job = jobs.get(jobId);
+
+        if (job != null) {
+            job.status = JobStatus.SUCCESS;
+        }
 
         String logs = new String(body);
 
