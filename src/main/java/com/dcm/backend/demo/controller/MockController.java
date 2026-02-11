@@ -9,6 +9,16 @@ import java.util.Map;
 @RestController
 public class MockController {
 
+    private Map<String, Long> workerLastSeen = new ConcurrentHashMap<>();
+    private Map<String, Job> jobs = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    public void init() {
+        jobs.put("job123",
+                new Job("job123", "hello-world", "http://localhost:8080/files/input.txt"));
+    }
+
+
     @GetMapping("/ping")
     public String ping() {
         return "Hello Agent";
