@@ -9,4 +9,10 @@ public class Job {
     public String fileUrl;
     public JobStatus status;
 
+    public Job(String id, String image, String url) {
+        this.jobId = id;
+        this.dockerImage = image;
+        this.fileUrl = url;
+        this.status = JobStatus.CREATED;
+    }
 }
