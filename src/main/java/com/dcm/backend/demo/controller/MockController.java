@@ -60,4 +60,21 @@ public class MockController {
 
         return "ok";
     }
+
+    @PostMapping("/workers/heartbeat")
+    public String heartbeat(@RequestBody Map<String, String> data) {
+
+        String workerId = data.get("workerId");
+        workerLastSeen.put(workerId, System.currentTimeMillis());
+
+        System.out.println(
+                "Heartbeat from " + data.get("workerId") +
+                        " status=" + data.get("status")
+        );
+
+        return "ok";
+    }
+
+    
+
 }
