@@ -40,8 +40,10 @@ public class MockController {
 
         boolean hasJob = Math.random() > 0.5; // 50% chance
 
-        if (!hasJob) {
-            return ResponseEntity.noContent().build(); // 204
+            if (job.status == JobStatus.CREATED) {
+                job.status = JobStatus.RUNNING;  // 🔥 mark running
+                return ResponseEntity.ok(job);
+            }
         }
 
         return ResponseEntity.ok(
