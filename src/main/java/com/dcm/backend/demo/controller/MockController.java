@@ -130,5 +130,22 @@ public class MockController {
         return "ok";
     }
 
+    @PostMapping("/jobs/create")
+    public Job createJob(@RequestBody JobCreateRequest request) {
+
+        String jobId = UUID.randomUUID().toString();
+
+        Job job = new Job(
+                jobId,
+                request.dockerImage,
+                request.fileUrl
+        );
+
+        jobs.put(jobId, job);
+
+        System.out.println("Created job " + jobId);
+
+        return job;
+    }
 
 }
