@@ -19,11 +19,14 @@ public class MockController {
     private Map<String, Long> workerLastSeen = new ConcurrentHashMap<>();
     private Map<String, Job> jobs = new ConcurrentHashMap<>();
 
-    @PostConstruct
-    public void init() {
-        jobs.put("job123",
-                new Job("job123", "hello-world", "http://localhost:8080/files/input.txt"));
-    }
+//    @PostConstruct
+//    public void init() {
+//        for (int i = 1; i <= 10; i++) {
+//            String id = "job" + i;
+//            jobs.put(id,
+//                    new Job(id, "hello-world", "http://localhost:8080/files/input.txt"));
+//        }
+//    }
 
 
     @GetMapping("/ping")
