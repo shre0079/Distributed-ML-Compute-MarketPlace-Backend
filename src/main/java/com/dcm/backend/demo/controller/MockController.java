@@ -111,5 +111,24 @@ public class MockController {
         }
     }
 
+    @PostMapping("/jobs/fail")
+    public String failJob(@RequestParam String jobId) {
+
+        Job job = jobs.get(jobId);
+
+        if (job != null) {
+            job.retryCount++;
+            if (job.retryCount < job.maxRetries) {
+                job.status = JobStatus.CREATED;
+                System.out.println("Retrying job " + jobId +
+                        " attempt " + job.retryCount);
+            } else {
+                job.status = JobStatus.FAILED;
+                System.out.println("Job " + jobId + " permanently FAILED");
+            }
+        }
+        return "ok";
+    }
+
 
 }
