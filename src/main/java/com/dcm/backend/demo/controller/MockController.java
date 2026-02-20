@@ -1,29 +1,40 @@
 package com.dcm.backend.demo.controller;
 
 import com.dcm.backend.demo.dto.Job;
+import com.dcm.backend.demo.dto.JobCreateRequest;
 import com.dcm.backend.demo.dto.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
-import jakarta.annotation.PostConstruct;
+import com.dcm.backend.demo.repository.JobRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 public class MockController {
 
+    private final JobRepository jobRepository;
     private Map<String, Long> workerLastSeen = new ConcurrentHashMap<>();
-    private Map<String, Job> jobs = new ConcurrentHashMap<>();
 
-    @PostConstruct
-    public void init() {
-        jobs.put("job123",
-                new Job("job123", "hello-world", "http://localhost:8080/files/input.txt"));
+    public MockController(JobRepository jobRepository, JobRepository jobRepository1) {
+        this.jobRepository = jobRepository1;
     }
+
+//    @PostConstruct
+//    public void init() {
+//        for (int i = 1; i <= 10; i++) {
+//            String id = "job" + i;
+//            jobs.put(id,
+//                    new Job(id, "hello-world", "http://localhost:8080/files/input.txt"));
+//        }
+//    }
 
 
     @GetMapping("/ping")
@@ -43,16 +54,16 @@ public class MockController {
     }
 
     @GetMapping("/jobs/poll")
-    public ResponseEntity<?> pollJob() {
+    public synchronized ResponseEntity<?> pollJob() {
 
-        for (Job job : jobs.values()) {
+        Optional<Job> jobOpt = jobRepository.findFirstByStatus(JobStatus.CREATED);
 
-            if (job.status == JobStatus.CREATED) {
-                job.status = JobStatus.RUNNING;  // 🔥 mark running
+            if (jobOpt.isPresent()) {
+                Job job = jobOpt.get();
+                job.status = JobStatus.RUNNING;
+                jobRepository.save(job);
                 return ResponseEntity.ok(job);
-            }
         }
-
         return ResponseEntity.noContent().build();
     }
 
@@ -66,10 +77,11 @@ public class MockController {
             @RequestParam String jobId,
             @RequestBody byte[] body) throws Exception {
 
-        Job job = jobs.get(jobId);
+        Job job = (Job) jobRepository.findById(jobId).orElse(null);
 
         if (job != null) {
             job.status = JobStatus.SUCCESS;
+            jobRepository.save(job);
         }
 
         String logs = new String(body);
@@ -102,14 +114,59 @@ public class MockController {
         long now = System.currentTimeMillis();
 
         for (var entry : workerLastSeen.entrySet()) {
-
             long last = entry.getValue();
-
             if (now - last > 15000) { // 15 seconds timeout
                 System.out.println("Worker DEAD: " + entry.getKey());
             }
         }
     }
 
+    @PostMapping("/jobs/fail")
+    public String failJob(@RequestParam String jobId) {
+
+        Job job = (Job) jobRepository.findById(jobId).orElse(null);
+
+        if (job != null) {
+            job.retryCount++;
+
+            if (job.retryCount < job.maxRetries) {
+                job.status = JobStatus.CREATED;
+                System.out.println("Retrying job " + jobId + " attempt " + job.retryCount);
+            } else {
+                job.status = JobStatus.FAILED;
+                System.out.println("Job " + jobId + " permanently FAILED");
+            }
+            jobRepository.save(job);
+        }
+        return "ok";
+    }
+
+    @PostMapping("/jobs/create")
+    public Job createJob(@RequestBody JobCreateRequest request) {
+
+        String jobId = UUID.randomUUID().toString();
+
+        Job job = new Job(
+                jobId,
+                request.dockerImage,
+                request.fileUrl
+        );
+
+        jobRepository.save(job);
+
+        System.out.println("Created job " + jobId);
+
+        return job;
+    }
+
+    @GetMapping("/jobs")
+    public List<Job> getAllJobs() {
+        return jobRepository.findAll();
+    }
+
+    @GetMapping("/jobs/status/{status}")
+    public List<Job> getByStatus(@PathVariable JobStatus status) {
+        return jobRepository.findAllByStatus(status);
+    }
 
 }
