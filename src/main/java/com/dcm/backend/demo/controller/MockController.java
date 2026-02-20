@@ -151,4 +151,14 @@ public class MockController {
         return job;
     }
 
+    @GetMapping("/jobs")
+    public List<Job> getAllJobs() {
+        return jobRepository.findAll();
+    }
+
+    @GetMapping("/jobs/status/{status}")
+    public List<Job> getByStatus(@PathVariable JobStatus status) {
+        return jobRepository.findAllByStatus(status);
+    }
+
 }
