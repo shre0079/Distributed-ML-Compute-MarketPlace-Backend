@@ -21,6 +21,8 @@ public class Job {
     public int retryCount;
     public int maxRetries = 3;
 
+    public String workerId;
+
     public Job(String id, String image, String url) {
         this.jobId = id;
         this.dockerImage = image;
