@@ -53,14 +53,15 @@ public class MockController {
         return "ok";
     }
 
-    @GetMapping("/jobs/poll")
-    public synchronized ResponseEntity<?> pollJob() {
+    @GetMapping("/jobs/poll/{workerId}")
+    public synchronized ResponseEntity<?> pollJob(@PathVariable String workerId) {
 
         Optional<Job> jobOpt = jobRepository.findFirstByStatus(JobStatus.CREATED);
 
             if (jobOpt.isPresent()) {
                 Job job = jobOpt.get();
                 job.status = JobStatus.RUNNING;
+                job.workerId = workerId;
                 jobRepository.save(job);
                 return ResponseEntity.ok(job);
         }
@@ -109,17 +110,20 @@ public class MockController {
     }
 
     @Scheduled(fixedRate = 5000)
+    @Scheduled(fixedRate = 5000)
     public void checkDeadWorkers() {
 
         long now = System.currentTimeMillis();
 
         for (var entry : workerLastSeen.entrySet()) {
+
+            String workerId = entry.getKey();
             long last = entry.getValue();
 
             if (now - last > 15000) {
 
                 System.out.println("Worker DEAD: " + workerId);
-                
+
                 List<Job> stuckJobs =
                         jobRepository.findAllByWorkerIdAndStatus(workerId, JobStatus.RUNNING);
 
