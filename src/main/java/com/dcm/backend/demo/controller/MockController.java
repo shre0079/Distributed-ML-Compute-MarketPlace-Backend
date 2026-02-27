@@ -53,14 +53,15 @@ public class MockController {
         return "ok";
     }
 
-    @GetMapping("/jobs/poll")
-    public synchronized ResponseEntity<?> pollJob() {
+    @GetMapping("/jobs/poll/{workerId}")
+    public synchronized ResponseEntity<?> pollJob(@PathVariable String workerId) {
 
         Optional<Job> jobOpt = jobRepository.findFirstByStatus(JobStatus.CREATED);
 
             if (jobOpt.isPresent()) {
                 Job job = jobOpt.get();
                 job.status = JobStatus.RUNNING;
+                job.workerId = workerId;
                 jobRepository.save(job);
                 return ResponseEntity.ok(job);
         }
@@ -109,14 +110,32 @@ public class MockController {
     }
 
     @Scheduled(fixedRate = 5000)
+    @Scheduled(fixedRate = 5000)
     public void checkDeadWorkers() {
 
         long now = System.currentTimeMillis();
 
         for (var entry : workerLastSeen.entrySet()) {
+
+            String workerId = entry.getKey();
             long last = entry.getValue();
-            if (now - last > 15000) { // 15 seconds timeout
-                System.out.println("Worker DEAD: " + entry.getKey());
+
+            if (now - last > 15000) {
+
+                System.out.println("Worker DEAD: " + workerId);
+
+                List<Job> stuckJobs =
+                        jobRepository.findAllByWorkerIdAndStatus(workerId, JobStatus.RUNNING);
+
+                for (Job job : stuckJobs) {
+                    job.status = JobStatus.CREATED;
+                    job.workerId = null;
+                    jobRepository.save(job);
+
+                    System.out.println("Requeued job " + job.jobId);
+                }
+
+                workerLastSeen.remove(workerId);
             }
         }
     }
@@ -169,4 +188,19 @@ public class MockController {
         return jobRepository.findAllByStatus(status);
     }
 
+    @PostMapping("/jobs/artifact")
+    public String uploadArtifact(@RequestParam String jobId,
+                                 @RequestBody byte[] body) throws Exception {
+
+        Path dir = Path.of("artifacts");
+        Files.createDirectories(dir);
+
+        Path file = dir.resolve(jobId + ".zip");
+
+        Files.write(file, body);
+
+        System.out.println("Saved artifact: " + file);
+
+        return "ok";
+    }
 }
