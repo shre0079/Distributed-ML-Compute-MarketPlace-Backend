@@ -17,4 +17,6 @@ public interface JobRepository extends Repository<Job, String> {
     List<Job> findAll();
 
     List<Job> findAllByStatus(JobStatus status);
+
+    List<Job> findAllByWorkerIdAndStatus(String workerId, JobStatus status);
 }
