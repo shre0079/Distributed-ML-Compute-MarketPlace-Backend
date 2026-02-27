@@ -184,4 +184,19 @@ public class MockController {
         return jobRepository.findAllByStatus(status);
     }
 
+    @PostMapping("/jobs/artifact")
+    public String uploadArtifact(@RequestParam String jobId,
+                                 @RequestBody byte[] body) throws Exception {
+
+        Path dir = Path.of("artifacts");
+        Files.createDirectories(dir);
+
+        Path file = dir.resolve(jobId + ".zip");
+
+        Files.write(file, body);
+
+        System.out.println("Saved artifact: " + file);
+
+        return "ok";
+    }
 }
