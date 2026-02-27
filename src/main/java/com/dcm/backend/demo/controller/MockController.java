@@ -115,8 +115,23 @@ public class MockController {
 
         for (var entry : workerLastSeen.entrySet()) {
             long last = entry.getValue();
-            if (now - last > 15000) { // 15 seconds timeout
-                System.out.println("Worker DEAD: " + entry.getKey());
+
+            if (now - last > 15000) {
+
+                System.out.println("Worker DEAD: " + workerId);
+                
+                List<Job> stuckJobs =
+                        jobRepository.findAllByWorkerIdAndStatus(workerId, JobStatus.RUNNING);
+
+                for (Job job : stuckJobs) {
+                    job.status = JobStatus.CREATED;
+                    job.workerId = null;
+                    jobRepository.save(job);
+
+                    System.out.println("Requeued job " + job.jobId);
+                }
+
+                workerLastSeen.remove(workerId);
             }
         }
     }
