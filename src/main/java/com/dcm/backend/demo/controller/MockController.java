@@ -5,6 +5,8 @@ import com.dcm.backend.demo.dto.JobCreateRequest;
 import com.dcm.backend.demo.dto.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.repository.JobRepository;
+
+import com.dcm.backend.demo.repository.WorkerRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
@@ -13,18 +15,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+
 
 @RestController
 public class MockController {
 
     private final JobRepository jobRepository;
+    private final WorkerRepository workerRepository;
     private Map<String, Long> workerLastSeen = new ConcurrentHashMap<>();
 
-    public MockController(JobRepository jobRepository, JobRepository jobRepository1) {
+    public MockController(JobRepository jobRepository, JobRepository jobRepository1, WorkerRepository workerRepository) {
         this.jobRepository = jobRepository1;
+        this.workerRepository = workerRepository;
     }
 
 //    @PostConstruct
@@ -43,12 +47,23 @@ public class MockController {
     }
 
     @PostMapping("/register")
-    public String register(@RequestBody WorkerInfo worker) {
+    public String register(@RequestBody WorkerInfo workerInfo) {
 
-        System.out.println("Worker registered: " + worker.workerId +
-                " | CPU: " + worker.cpuCores +
-                " | RAM: " + worker.memoryMB +
-                " | OS: " + worker.os);
+        WorkerInfo worker = workerRepository.findById(workerInfo.workerId).orElse(new WorkerInfo());
+        worker.workerId = workerInfo.workerId;
+        worker.cpuCores = workerInfo.cpuCores;
+        worker.memoryMB = workerInfo.memoryMB;
+        worker.hasGpu = workerInfo.hasGpu;
+        worker.lastSeen = System.currentTimeMillis();
+        workerRepository.save(workerInfo);
+
+        System.out.println("Registering worker with GPU = " + workerInfo.hasGpu);
+
+//        System.out.println("Worker registered: " + worker.workerId +
+//                " | CPU: " + worker.cpuCores +
+//                " | RAM: " + worker.memoryMB +
+//                " | OS: " + worker.os +
+//                " | GPU: " + worker.hasGpu);
 
         return "ok";
     }
@@ -56,15 +71,30 @@ public class MockController {
     @GetMapping("/jobs/poll/{workerId}")
     public synchronized ResponseEntity<?> pollJob(@PathVariable String workerId) {
 
-        Optional<Job> jobOpt = jobRepository.findFirstByStatus(JobStatus.CREATED);
+        WorkerInfo worker = workerRepository.findById(workerId).orElse(null);
 
-            if (jobOpt.isPresent()) {
-                Job job = jobOpt.get();
+        if (worker == null) return ResponseEntity.noContent().build();
+
+        List<Job> jobs = jobRepository.findAllByStatus(JobStatus.CREATED);
+
+        System.out.println("Worker " + workerId + " hasGpu=" + worker.hasGpu);
+        for (Job job : jobs) {
+
+            boolean compatible =
+                    worker.cpuCores >= job.requiredCpu &&
+                            worker.memoryMB >= job.requiredMemoryMB &&
+                            (!job.gpuRequired || worker.hasGpu);
+
+            if (compatible) {
+
                 job.status = JobStatus.RUNNING;
                 job.workerId = workerId;
                 jobRepository.save(job);
+
                 return ResponseEntity.ok(job);
+            }
         }
+
         return ResponseEntity.noContent().build();
     }
 
@@ -165,11 +195,10 @@ public class MockController {
 
         String jobId = UUID.randomUUID().toString();
 
-        Job job = new Job(
-                jobId,
-                request.dockerImage,
-                request.fileUrl
-        );
+        Job job = new Job(jobId, request.dockerImage, request.fileUrl);
+        job.requiredCpu = request.requiredCpu;
+        job.requiredMemoryMB = request.requiredMemoryMB;
+        job.gpuRequired = request.gpuRequired;
 
         jobRepository.save(job);
 

@@ -1,10 +1,7 @@
 package com.dcm.backend.demo.dto;
 
 import com.dcm.backend.demo.enums.JobStatus;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
 public class Job {
@@ -22,6 +19,13 @@ public class Job {
     public int maxRetries = 3;
 
     public String workerId;
+
+    @Column(nullable = false)
+    public int requiredCpu=1;
+    @Column(nullable = false)
+    public int requiredMemoryMB=512;
+    @Column(nullable = false)
+    public boolean gpuRequired=false;
 
     public Job(String id, String image, String url) {
         this.jobId = id;
