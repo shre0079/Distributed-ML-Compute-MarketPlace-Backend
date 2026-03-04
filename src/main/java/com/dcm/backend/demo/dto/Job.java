@@ -23,6 +23,13 @@ public class Job {
 
     public String workerId;
 
+    @Column(nullable = false)
+    public int requiredCpu=1;
+    @Column(nullable = false)
+    public int requiredMemoryMB=512;
+    @Column(nullable = false)
+    public boolean gpuRequired=false;
+
     public Job(String id, String image, String url) {
         this.jobId = id;
         this.dockerImage = image;
