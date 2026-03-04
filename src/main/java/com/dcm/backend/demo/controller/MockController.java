@@ -165,11 +165,10 @@ public class MockController {
 
         String jobId = UUID.randomUUID().toString();
 
-        Job job = new Job(
-                jobId,
-                request.dockerImage,
-                request.fileUrl
-        );
+        Job job = new Job(jobId, request.dockerImage, request.fileUrl);
+        job.requiredCpu = request.requiredCpu;
+        job.requiredMemoryMB = request.requiredMemoryMB;
+        job.gpuRequired = request.gpuRequired;
 
         jobRepository.save(job);
 
