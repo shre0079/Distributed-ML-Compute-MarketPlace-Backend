@@ -6,4 +6,7 @@ public class WorkerInfo {
     public int cpuCores;
     public long memoryMB;
     public String os;
+    public boolean hasGpu;
+
+    public long lastSeen;
 }
