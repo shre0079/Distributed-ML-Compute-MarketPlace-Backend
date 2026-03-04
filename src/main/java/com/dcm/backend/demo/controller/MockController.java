@@ -58,8 +58,18 @@ public class MockController {
 
         Optional<Job> jobOpt = jobRepository.findFirstByStatus(JobStatus.CREATED);
 
-            if (jobOpt.isPresent()) {
-                Job job = jobOpt.get();
+        List<Job> jobs = jobRepository.findAllByStatus(JobStatus.CREATED);
+
+        System.out.println("Worker " + workerId + " hasGpu=" + worker.hasGpu);
+        for (Job job : jobs) {
+
+            boolean compatible =
+                    worker.cpuCores >= job.requiredCpu &&
+                            worker.memoryMB >= job.requiredMemoryMB &&
+                            (!job.gpuRequired || worker.hasGpu);
+
+            if (compatible) {
+
                 job.status = JobStatus.RUNNING;
                 job.workerId = workerId;
                 jobRepository.save(job);
