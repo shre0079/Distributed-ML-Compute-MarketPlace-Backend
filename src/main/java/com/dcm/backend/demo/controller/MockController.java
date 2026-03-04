@@ -43,7 +43,15 @@ public class MockController {
     }
 
     @PostMapping("/register")
-    public String register(@RequestBody WorkerInfo worker) {
+    public String register(@RequestBody WorkerInfo workerInfo) {
+
+        WorkerInfo worker = workerRepository.findById(workerInfo.workerId).orElse(new WorkerInfo());
+        worker.workerId = workerInfo.workerId;
+        worker.cpuCores = workerInfo.cpuCores;
+        worker.memoryMB = workerInfo.memoryMB;
+        worker.hasGpu = workerInfo.hasGpu;
+        worker.lastSeen = System.currentTimeMillis();
+        workerRepository.save(workerInfo);
 
         System.out.println("Worker registered: " + worker.workerId +
                 " | CPU: " + worker.cpuCores +
