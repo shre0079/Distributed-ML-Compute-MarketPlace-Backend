@@ -7,6 +7,7 @@ import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.repository.JobRepository;
 
 import com.dcm.backend.demo.repository.WorkerRepository;
+import com.dcm.backend.demo.service.BillingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
@@ -30,16 +31,6 @@ public class MockController {
         this.jobRepository = jobRepository1;
         this.workerRepository = workerRepository;
     }
-
-//    @PostConstruct
-//    public void init() {
-//        for (int i = 1; i <= 10; i++) {
-//            String id = "job" + i;
-//            jobs.put(id,
-//                    new Job(id, "hello-world", "http://localhost:8080/files/input.txt"));
-//        }
-//    }
-
 
     @GetMapping("/ping")
     public String ping() {
@@ -94,7 +85,6 @@ public class MockController {
                 return ResponseEntity.ok(job);
             }
         }
-
         return ResponseEntity.noContent().build();
     }
 
@@ -106,9 +96,14 @@ public class MockController {
     @PostMapping("/jobs/result")
     public String uploadResult(
             @RequestParam String jobId,
+            @RequestParam long runtimeMs,
             @RequestBody byte[] body) throws Exception {
 
         Job job = (Job) jobRepository.findById(jobId).orElse(null);
+
+        job.durationMs = runtimeMs;
+
+        BillingService.calculateBilling(job);
 
         if (job != null) {
             job.status = JobStatus.SUCCESS;
@@ -121,6 +116,13 @@ public class MockController {
         Files.writeString(Path.of("results", jobId + ".log"), logs);
 
         System.out.println("Job " + jobId + " SUCCESS");
+
+        System.out.println(
+                "Job " + job.jobId +
+                        " cost=$" + String.format("%.8f", job.cost) +
+                        " workerEarned=$" + String.format("%.8f", job.workerReward) +
+                        " platformFee=$" + String.format("%.8f", job.platformFee)
+        );
 
         return "ok";
     }
@@ -135,7 +137,6 @@ public class MockController {
                 "Heartbeat from " + data.get("workerId") +
                         " status=" + data.get("status")
         );
-
         return "ok";
     }
 

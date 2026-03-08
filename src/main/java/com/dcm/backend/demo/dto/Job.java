@@ -2,6 +2,7 @@ package com.dcm.backend.demo.dto;
 
 import com.dcm.backend.demo.enums.JobStatus;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 
 @Entity
 public class Job {
@@ -26,6 +27,15 @@ public class Job {
     public int requiredMemoryMB=512;
     @Column(nullable = false)
     public boolean gpuRequired=false;
+
+    public Long durationMs;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal cost;
+    @Column(precision = 12, scale = 8)
+    public BigDecimal workerReward;
+    @Column(precision = 12, scale = 8)
+    public BigDecimal platformFee;
 
     public Job(String id, String image, String url) {
         this.jobId = id;

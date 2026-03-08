@@ -1,7 +1,9 @@
 package com.dcm.backend.demo.dto;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import java.math.BigDecimal;
 
 @Entity
 public class WorkerInfo {
@@ -12,6 +14,11 @@ public class WorkerInfo {
     public long memoryMB;
     public String os;
     public boolean hasGpu;
-
     public long lastSeen;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal walletBalance = BigDecimal.ZERO;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal totalEarned = BigDecimal.ZERO;
 }
