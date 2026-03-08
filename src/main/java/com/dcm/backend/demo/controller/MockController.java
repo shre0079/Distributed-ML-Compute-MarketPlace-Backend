@@ -106,6 +106,7 @@ public class MockController {
     @PostMapping("/jobs/result")
     public String uploadResult(
             @RequestParam String jobId,
+            @RequestParam long runtimeMs,
             @RequestBody byte[] body) throws Exception {
 
         Job job = (Job) jobRepository.findById(jobId).orElse(null);
