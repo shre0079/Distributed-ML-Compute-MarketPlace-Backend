@@ -2,6 +2,7 @@ package com.dcm.backend.demo.dto;
 
 import com.dcm.backend.demo.enums.JobStatus;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 
 @Entity
 public class Job {
