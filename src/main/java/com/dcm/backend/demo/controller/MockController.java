@@ -127,6 +127,13 @@ public class MockController {
 
         System.out.println("Job " + jobId + " SUCCESS");
 
+        System.out.println(
+                "Job " + job.jobId +
+                        " cost=$" + String.format("%.8f", job.cost) +
+                        " workerEarned=$" + String.format("%.8f", job.workerReward) +
+                        " platformFee=$" + String.format("%.8f", job.platformFee)
+        );
+
         return "ok";
     }
 
