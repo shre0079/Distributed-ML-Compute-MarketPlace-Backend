@@ -14,4 +14,10 @@ public class WorkerInfo {
     public boolean hasGpu;
 
     public long lastSeen;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal walletBalance = BigDecimal.ZERO;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal totalEarned = BigDecimal.ZERO;
 }
