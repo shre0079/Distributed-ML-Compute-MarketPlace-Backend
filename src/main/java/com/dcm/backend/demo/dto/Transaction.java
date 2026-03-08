@@ -25,4 +25,3 @@ import java.math.BigDecimal;
 
         public long timestamp;
     }
-}
