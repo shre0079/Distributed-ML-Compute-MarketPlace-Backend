@@ -27,6 +27,15 @@ public class Job {
     @Column(nullable = false)
     public boolean gpuRequired=false;
 
+    public Long durationMs;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal cost;
+    @Column(precision = 12, scale = 8)
+    public BigDecimal workerReward;
+    @Column(precision = 12, scale = 8)
+    public BigDecimal platformFee;
+
     public Job(String id, String image, String url) {
         this.jobId = id;
         this.dockerImage = image;
