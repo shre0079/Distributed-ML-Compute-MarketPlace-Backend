@@ -111,6 +111,10 @@ public class MockController {
 
         Job job = (Job) jobRepository.findById(jobId).orElse(null);
 
+        job.durationMs = runtimeMs;
+
+        BillingService.calculateBilling(job);
+
         if (job != null) {
             job.status = JobStatus.SUCCESS;
             jobRepository.save(job);
