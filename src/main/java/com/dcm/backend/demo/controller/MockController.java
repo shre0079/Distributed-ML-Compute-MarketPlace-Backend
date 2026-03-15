@@ -264,4 +264,10 @@ public class MockController {
 
         return user;
     }
+
+    @GetMapping("/wallet/{userId}")
+    public User getUser(@PathVariable String userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
 }
