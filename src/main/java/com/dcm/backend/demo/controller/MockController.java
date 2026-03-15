@@ -233,4 +233,23 @@ public class MockController {
 
         return "ok";
     }
+
+    @RestController
+    @RequestMapping("/users")
+    public class UserController {
+
+        @Autowired
+        private UserRepository userRepo;
+
+        @PostMapping("/register")
+        public User register(@RequestBody User user) {
+
+            user.userId = UUID.randomUUID().toString();
+            user.walletBalance = BigDecimal.ZERO;
+
+            return userRepo.save(user);
+        }
+    }
+
+    
 }
