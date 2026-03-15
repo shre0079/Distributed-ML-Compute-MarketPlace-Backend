@@ -251,5 +251,17 @@ public class MockController {
         }
     }
 
-    
+    @PostMapping("/deposit")
+    public User deposit(@RequestParam String userId,
+                        @RequestParam BigDecimal amount) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.walletBalance = user.walletBalance.add(amount);
+
+        userRepository.save(user);
+
+        return user;
+    }
 }
