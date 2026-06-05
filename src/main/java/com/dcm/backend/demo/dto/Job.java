@@ -10,6 +10,9 @@ public class Job {
     @Id
     public String jobId;
 
+    @Column(nullable = false)
+    public String userId;
+
     public String dockerImage;
     public String fileUrl;
 
@@ -37,12 +40,14 @@ public class Job {
     @Column(precision = 12, scale = 8)
     public BigDecimal platformFee;
 
-    public Job(String id, String image, String url) {
+    public Job(String id, String image, String url, String userId) {
         this.jobId = id;
         this.dockerImage = image;
         this.fileUrl = url;
         this.status = JobStatus.CREATED;
         this.retryCount = 0;
+        this.userId = userId;
+
     }
 
     public Job() {

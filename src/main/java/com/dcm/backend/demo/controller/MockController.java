@@ -2,16 +2,21 @@ package com.dcm.backend.demo.controller;
 
 import com.dcm.backend.demo.dto.Job;
 import com.dcm.backend.demo.dto.JobCreateRequest;
+import com.dcm.backend.demo.dto.User;
 import com.dcm.backend.demo.dto.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.repository.JobRepository;
 
+import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import com.dcm.backend.demo.service.BillingService;
+import com.dcm.backend.demo.service.WalletService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -25,11 +30,18 @@ public class MockController {
 
     private final JobRepository jobRepository;
     private final WorkerRepository workerRepository;
+    private final UserRepository userRepository;
+    private final WalletService walletService;
     private Map<String, Long> workerLastSeen = new ConcurrentHashMap<>();
 
-    public MockController(JobRepository jobRepository, JobRepository jobRepository1, WorkerRepository workerRepository) {
-        this.jobRepository = jobRepository1;
+    public MockController(JobRepository jobRepository,
+                          WorkerRepository workerRepository,
+                          UserRepository userRepository,
+                          WalletService walletService) {
+        this.jobRepository = jobRepository;
         this.workerRepository = workerRepository;
+        this.userRepository = userRepository;
+        this.walletService = walletService;
     }
 
     @GetMapping("/ping")
@@ -44,20 +56,42 @@ public class MockController {
         worker.workerId = workerInfo.workerId;
         worker.cpuCores = workerInfo.cpuCores;
         worker.memoryMB = workerInfo.memoryMB;
+        worker.os = workerInfo.os;
         worker.hasGpu = workerInfo.hasGpu;
-        worker.lastSeen = System.currentTimeMillis();
-        workerRepository.save(workerInfo);
+        worker.lastSeen = System.currentTimeMillis(); // persisted here, not on every heartbeat
+        workerRepository.save(worker);
+        // Re-seed into in-memory map so heartbeat detection works immediately
+        workerLastSeen.put(worker.workerId, worker.lastSeen);
+        System.out.println("Worker registered: " + worker.workerId +
+                " | CPU: " + worker.cpuCores +
+                " | RAM: " + worker.memoryMB +
+                " | OS: " + worker.os +
+                " | GPU: " + worker.hasGpu);
 
-        System.out.println("Registering worker with GPU = " + workerInfo.hasGpu);
+        return "ok";
+    }
 
+//    @PostMapping("/register")
+//    public String register(@RequestBody WorkerInfo workerInfo) {
+//
+//        WorkerInfo worker = workerRepository.findById(workerInfo.workerId).orElse(new WorkerInfo());
+//        worker.workerId = workerInfo.workerId;
+//        worker.cpuCores = workerInfo.cpuCores;
+//        worker.memoryMB = workerInfo.memoryMB;
+//        worker.hasGpu = workerInfo.hasGpu;
+//        worker.lastSeen = System.currentTimeMillis();
+//        workerRepository.save(workerInfo);
+//
+//        System.out.println("Registering worker with GPU = " + workerInfo.hasGpu);
+//
 //        System.out.println("Worker registered: " + worker.workerId +
 //                " | CPU: " + worker.cpuCores +
 //                " | RAM: " + worker.memoryMB +
 //                " | OS: " + worker.os +
 //                " | GPU: " + worker.hasGpu);
-
-        return "ok";
-    }
+//
+//        return "ok";
+//    }
 
     @GetMapping("/jobs/poll/{workerId}")
     public synchronized ResponseEntity<?> pollJob(@PathVariable String workerId) {
@@ -93,30 +127,72 @@ public class MockController {
         return "Sample training data";
     }
 
+//    @PostMapping("/jobs/result")
+//    public String uploadResult(
+//            @RequestParam String jobId,
+//            @RequestParam long runtimeMs,
+//            @RequestBody byte[] body) throws Exception {
+//
+//        Job job =  jobRepository.findById(jobId).orElseThrow();
+//
+//        job.durationMs = runtimeMs;
+//
+//        BillingService.calculateBilling(job);
+//        walletService.processJobPayment(jobId);
+//
+//        if (job != null) {
+//            job.status = JobStatus.SUCCESS;
+//            jobRepository.save(job);
+//        }
+//
+//        String logs = new String(body);
+//
+//        Files.createDirectories(Path.of("results"));
+//        Files.writeString(Path.of("results", jobId + ".log"), logs);
+//
+//        System.out.println("Job " + jobId + " SUCCESS");
+//
+//        System.out.println(
+//                "Job " + job.jobId +
+//                        " cost=$" + String.format("%.8f", job.cost) +
+//                        " workerEarned=$" + String.format("%.8f", job.workerReward) +
+//                        " platformFee=$" + String.format("%.8f", job.platformFee)
+//        );
+//
+//        return "ok";
+//    }
+
     @PostMapping("/jobs/result")
     public String uploadResult(
             @RequestParam String jobId,
             @RequestParam long runtimeMs,
             @RequestBody byte[] body) throws Exception {
 
-        Job job = (Job) jobRepository.findById(jobId).orElse(null);
+        Job job = jobRepository.findById(jobId).orElseThrow();
+
+        // Guard: prevent double-payment if already processed
+        if (job.status == JobStatus.SUCCESS) {
+            System.out.println("Job " + jobId + " already processed, skipping.");
+            return "ok";
+        }
 
         job.durationMs = runtimeMs;
 
+        // Step 1: calculate billing on the in-memory object
         BillingService.calculateBilling(job);
 
-        if (job != null) {
-            job.status = JobStatus.SUCCESS;
-            jobRepository.save(job);
-        }
+        // Step 2: persist cost/workerReward/platformFee to DB FIRST
+        job.status = JobStatus.SUCCESS;
+        jobRepository.save(job);
+
+        // Step 3: NOW wallet service can re-fetch job and find cost populated
+        walletService.processJobPayment(jobId);
 
         String logs = new String(body);
-
         Files.createDirectories(Path.of("results"));
         Files.writeString(Path.of("results", jobId + ".log"), logs);
 
         System.out.println("Job " + jobId + " SUCCESS");
-
         System.out.println(
                 "Job " + job.jobId +
                         " cost=$" + String.format("%.8f", job.cost) +
@@ -127,11 +203,24 @@ public class MockController {
         return "ok";
     }
 
+//    @PostMapping("/workers/heartbeat")
+//    public String heartbeat(@RequestBody Map<String, String> data) {
+//
+//        String workerId = data.get("workerId");
+//        workerLastSeen.put(workerId, System.currentTimeMillis());
+//
+//        System.out.println(
+//                "Heartbeat from " + data.get("workerId") +
+//                        " status=" + data.get("status")
+//        );
+//        return "ok";
+//    }
+
     @PostMapping("/workers/heartbeat")
     public String heartbeat(@RequestBody Map<String, String> data) {
 
         String workerId = data.get("workerId");
-        workerLastSeen.put(workerId, System.currentTimeMillis());
+        workerLastSeen.put(workerId, System.currentTimeMillis()); // fast, in-memory only
 
         System.out.println(
                 "Heartbeat from " + data.get("workerId") +
@@ -140,33 +229,61 @@ public class MockController {
         return "ok";
     }
 
-    @Scheduled(fixedRate = 5000)
+//    @Scheduled(fixedRate = 5000)
+//    public void checkDeadWorkers() {
+//
+//        long now = System.currentTimeMillis();
+//
+//        for (var entry : workerLastSeen.entrySet()) {
+//
+//            String workerId = entry.getKey();
+//            long last = entry.getValue();
+//
+//            if (now - last > 15000) {
+//
+//                System.out.println("Worker DEAD: " + workerId);
+//
+//                List<Job> stuckJobs =
+//                        jobRepository.findAllByWorkerIdAndStatus(workerId, JobStatus.RUNNING);
+//
+//                for (Job job : stuckJobs) {
+//                    job.status = JobStatus.CREATED;
+//                    job.workerId = null;
+//                    jobRepository.save(job);
+//
+//                    System.out.println("Requeued job " + job.jobId);
+//                }
+//
+//                workerLastSeen.remove(workerId);
+//            }
+//        }
+//    }
+
     @Scheduled(fixedRate = 5000)
     public void checkDeadWorkers() {
 
         long now = System.currentTimeMillis();
 
-        for (var entry : workerLastSeen.entrySet()) {
+        List<WorkerInfo> allWorkers = workerRepository.findAll();
 
-            String workerId = entry.getKey();
-            long last = entry.getValue();
+        for (WorkerInfo worker : allWorkers) {
 
-            if (now - last > 15000) {
-
-                System.out.println("Worker DEAD: " + workerId);
-
-                List<Job> stuckJobs =
-                        jobRepository.findAllByWorkerIdAndStatus(workerId, JobStatus.RUNNING);
-
+            if (now - worker.lastSeen > 15000) {
+                // Worker was dead before restart, reset their stuck jobs
+                System.out.println("Startup: worker " + worker.workerId + " was dead, requeuing jobs.");
+                List<Job> stuckJobs = jobRepository.findAllByWorkerIdAndStatus(
+                        worker.workerId, JobStatus.RUNNING);
                 for (Job job : stuckJobs) {
                     job.status = JobStatus.CREATED;
                     job.workerId = null;
                     jobRepository.save(job);
-
-                    System.out.println("Requeued job " + job.jobId);
+                    System.out.println("Startup: requeued job " + job.jobId);
                 }
 
-                workerLastSeen.remove(workerId);
+            } else {
+                // Worker was recently alive before restart, re-seed the in-memory map
+                workerLastSeen.put(worker.workerId, worker.lastSeen);
+                System.out.println("Startup: re-seeded worker " + worker.workerId + " into heartbeat map.");
             }
         }
     }
@@ -174,7 +291,7 @@ public class MockController {
     @PostMapping("/jobs/fail")
     public String failJob(@RequestParam String jobId) {
 
-        Job job = (Job) jobRepository.findById(jobId).orElse(null);
+        Job job =  jobRepository.findById(jobId).orElse(null);
 
         if (job != null) {
             job.retryCount++;
@@ -196,10 +313,22 @@ public class MockController {
 
         String jobId = UUID.randomUUID().toString();
 
-        Job job = new Job(jobId, request.dockerImage, request.fileUrl);
+        Job job = new Job(jobId, request.dockerImage, request.fileUrl, request.userId);
         job.requiredCpu = request.requiredCpu;
         job.requiredMemoryMB = request.requiredMemoryMB;
         job.gpuRequired = request.gpuRequired;
+        job.userId= request.userId;
+
+        System.out.println("Incoming userId:🤣🤣🤣 " + request.userId);
+
+        User user = userRepository.findById(request.userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        BigDecimal estimatedCost = BigDecimal.valueOf(0.01); // temporary estimate
+
+        if (user.walletBalance.compareTo(estimatedCost) < 0) {
+            throw new RuntimeException("Insufficient wallet balance");
+        }
 
         jobRepository.save(job);
 
@@ -232,5 +361,36 @@ public class MockController {
         System.out.println("Saved artifact: " + file);
 
         return "ok";
+    }
+
+//        @Autowired
+//        private UserRepository userRepo;
+
+    @PostMapping("/user/register")
+    public User register(@RequestBody User user) {
+        user.userId = UUID.randomUUID().toString();
+        user.walletBalance = BigDecimal.ZERO;
+        return userRepository.save(user);  // ← was userRepo.save(user)
+    }
+
+
+    @PostMapping("/deposit")
+    public User deposit(@RequestParam String userId,
+                        @RequestParam BigDecimal amount) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.walletBalance = user.walletBalance.add(amount);
+
+        userRepository.save(user);
+
+        return user;
+    }
+
+    @GetMapping("/wallet/{userId}")
+    public User getUser(@PathVariable String userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
     }
 }
