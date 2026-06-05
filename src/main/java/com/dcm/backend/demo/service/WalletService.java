@@ -87,6 +87,6 @@ public class WalletService {
         System.out.println("Processing wallet payment for job: " + job.jobId);
 
         System.out.println(job);
-        System.out.println("userId =🥺🥺🥺 " + job.userId);
+        System.out.println("userId = " + job.userId);
     }
 }
