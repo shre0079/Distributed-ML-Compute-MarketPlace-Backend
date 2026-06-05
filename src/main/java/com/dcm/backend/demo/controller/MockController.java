@@ -131,10 +131,12 @@ public class MockController {
         BillingService.calculateBilling(job);
         walletService.processJobPayment(jobId);
 
-        if (job != null) {
-            job.status = JobStatus.SUCCESS;
-            jobRepository.save(job);
-        }
+        // Step 2: persist cost/workerReward/platformFee to DB FIRST
+        job.status = JobStatus.SUCCESS;
+        jobRepository.save(job);
+
+        // Step 3: NOW wallet service can re-fetch job and find cost populated
+        walletService.processJobPayment(jobId);
 
         String logs = new String(body);
 
