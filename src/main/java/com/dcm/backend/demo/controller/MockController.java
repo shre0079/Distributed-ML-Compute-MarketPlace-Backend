@@ -57,8 +57,15 @@ public class MockController {
         worker.cpuCores = workerInfo.cpuCores;
         worker.memoryMB = workerInfo.memoryMB;
         worker.hasGpu = workerInfo.hasGpu;
-        worker.lastSeen = System.currentTimeMillis();
-        workerRepository.save(workerInfo);
+        worker.lastSeen = System.currentTimeMillis(); // persisted here, not on every heartbeat
+        workerRepository.save(worker);
+        // Re-seed into in-memory map so heartbeat detection works immediately
+        workerLastSeen.put(worker.workerId, worker.lastSeen);
+        System.out.println("Worker registered: " + worker.workerId +
+                " | CPU: " + worker.cpuCores +
+                " | RAM: " + worker.memoryMB +
+                " | OS: " + worker.os +
+                " | GPU: " + worker.hasGpu);
 
         System.out.println("Registering worker with GPU = " + workerInfo.hasGpu);
 
