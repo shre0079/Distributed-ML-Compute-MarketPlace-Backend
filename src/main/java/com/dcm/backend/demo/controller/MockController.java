@@ -120,6 +120,12 @@ public class MockController {
 
         Job job =  jobRepository.findById(jobId).orElseThrow();
 
+        // Guard: prevent double-payment if already processed
+        if (job.status == JobStatus.SUCCESS) {
+            System.out.println("Job " + jobId + " already processed, skipping.");
+            return "ok";
+        }
+
         job.durationMs = runtimeMs;
 
         BillingService.calculateBilling(job);
