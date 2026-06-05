@@ -35,8 +35,11 @@ public class MockController {
     @Autowired
     private WalletService walletService;
 
-    public MockController(JobRepository jobRepository, JobRepository jobRepository1, WorkerRepository workerRepository, UserRepository userRepository) {
-        this.jobRepository = jobRepository1;
+    public MockController(JobRepository jobRepository,
+                          WorkerRepository workerRepository,
+                          UserRepository userRepository,
+                          WalletService walletService) {
+        this.jobRepository = jobRepository;
         this.workerRepository = workerRepository;
         this.userRepository = userRepository;
     }
