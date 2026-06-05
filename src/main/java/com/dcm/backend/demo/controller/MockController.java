@@ -194,7 +194,10 @@ public class MockController {
                     System.out.println("Requeued job " + job.jobId);
                 }
 
-                workerLastSeen.remove(workerId);
+            } else {
+                // Worker was recently alive before restart, re-seed the in-memory map
+                workerLastSeen.put(worker.workerId, worker.lastSeen);
+                System.out.println("Startup: re-seeded worker " + worker.workerId + " into heartbeat map.");
             }
         }
     }
