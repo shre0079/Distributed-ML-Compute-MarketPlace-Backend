@@ -181,11 +181,11 @@ public class MockController {
 
             if (now - last > 15000) {
 
-                System.out.println("Worker DEAD: " + workerId);
-
-                List<Job> stuckJobs =
-                        jobRepository.findAllByWorkerIdAndStatus(workerId, JobStatus.RUNNING);
-
+            if (now - worker.lastSeen > 15000) {
+                // Worker was dead before restart, reset their stuck jobs
+                System.out.println("Startup: worker " + worker.workerId + " was dead, requeuing jobs.");
+                List<Job> stuckJobs = jobRepository.findAllByWorkerIdAndStatus(
+                        worker.workerId, JobStatus.RUNNING);
                 for (Job job : stuckJobs) {
                     job.status = JobStatus.CREATED;
                     job.workerId = null;
