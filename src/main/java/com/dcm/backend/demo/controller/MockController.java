@@ -2,16 +2,21 @@ package com.dcm.backend.demo.controller;
 
 import com.dcm.backend.demo.dto.Job;
 import com.dcm.backend.demo.dto.JobCreateRequest;
+import com.dcm.backend.demo.dto.User;
 import com.dcm.backend.demo.dto.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.repository.JobRepository;
 
+import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import com.dcm.backend.demo.service.BillingService;
+import com.dcm.backend.demo.service.WalletService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -25,11 +30,15 @@ public class MockController {
 
     private final JobRepository jobRepository;
     private final WorkerRepository workerRepository;
+    private final UserRepository userRepository;
     private Map<String, Long> workerLastSeen = new ConcurrentHashMap<>();
+    @Autowired
+    private WalletService walletService;
 
-    public MockController(JobRepository jobRepository, JobRepository jobRepository1, WorkerRepository workerRepository) {
+    public MockController(JobRepository jobRepository, JobRepository jobRepository1, WorkerRepository workerRepository, UserRepository userRepository) {
         this.jobRepository = jobRepository1;
         this.workerRepository = workerRepository;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/ping")
@@ -99,11 +108,12 @@ public class MockController {
             @RequestParam long runtimeMs,
             @RequestBody byte[] body) throws Exception {
 
-        Job job = (Job) jobRepository.findById(jobId).orElse(null);
+        Job job =  jobRepository.findById(jobId).orElseThrow();
 
         job.durationMs = runtimeMs;
 
         BillingService.calculateBilling(job);
+        walletService.processJobPayment(jobId);
 
         if (job != null) {
             job.status = JobStatus.SUCCESS;
@@ -174,7 +184,7 @@ public class MockController {
     @PostMapping("/jobs/fail")
     public String failJob(@RequestParam String jobId) {
 
-        Job job = (Job) jobRepository.findById(jobId).orElse(null);
+        Job job =  jobRepository.findById(jobId).orElse(null);
 
         if (job != null) {
             job.retryCount++;
@@ -196,10 +206,22 @@ public class MockController {
 
         String jobId = UUID.randomUUID().toString();
 
-        Job job = new Job(jobId, request.dockerImage, request.fileUrl);
+        Job job = new Job(jobId, request.dockerImage, request.fileUrl, request.userId);
         job.requiredCpu = request.requiredCpu;
         job.requiredMemoryMB = request.requiredMemoryMB;
         job.gpuRequired = request.gpuRequired;
+        job.userId= request.userId;
+
+        System.out.println("Incoming userId:🤣🤣🤣 " + request.userId);
+
+        User user = userRepository.findById(request.userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        BigDecimal estimatedCost = BigDecimal.valueOf(0.01); // temporary estimate
+
+        if (user.walletBalance.compareTo(estimatedCost) < 0) {
+            throw new RuntimeException("Insufficient wallet balance");
+        }
 
         jobRepository.save(job);
 
@@ -234,14 +256,10 @@ public class MockController {
         return "ok";
     }
 
-    @RestController
-    @RequestMapping("/users")
-    public class UserController {
-
         @Autowired
         private UserRepository userRepo;
 
-        @PostMapping("/register")
+        @PostMapping("/user/register")
         public User register(@RequestBody User user) {
 
             user.userId = UUID.randomUUID().toString();
@@ -249,7 +267,7 @@ public class MockController {
 
             return userRepo.save(user);
         }
-    }
+
 
     @PostMapping("/deposit")
     public User deposit(@RequestParam String userId,
