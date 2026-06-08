@@ -262,6 +262,8 @@ public class MockController {
     @Scheduled(fixedRate = 5000)
     public void checkDeadWorkers() {
 
+        if (workerLastSeen.isEmpty()) return;
+
         long now = System.currentTimeMillis();
 
         List<WorkerInfo> allWorkers = workerRepository.findAll();

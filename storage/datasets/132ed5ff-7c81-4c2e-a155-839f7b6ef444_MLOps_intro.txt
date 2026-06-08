@@ -1,0 +1,44 @@
+ml ops is a set of practise, it's not a library or a tool. It aims to deploy and maintain a machine learning model in production reliably and efficiently.
+
+set of practices that combines data science, software engineering, and DevOps to automate, manage, and monitor machine learning models in production
+
+It bridges the gap between experimental development and IT operations to ensure AI models are reliable, scalable, and continuously updated
+
+Traditional software relies on rigid rules, but machine learning models rely on data. MLOps was created to solve specific problems that DevOps alone cannot
+
+Model Drift, Complex Pipelines, Collaboration
+
+Lifecycle:
+
+Design -> Build -> Deployment -> Automation -> Monitor and Retrain
+
+Key Tools:
+
+MLFlow: code versioning and model performance
+
+Pipeline Orchestration: Kubeflow (from data ingestion to deployment)
+
+Model Serving & versioning: DVC for data versioning, BentoML servers models as restAPIs
+
+
+Data Pipeline:
+
+1. Data ingestion 
+2. Data Exploration and Validation
+3. Data Wrangling
+4. Data labeling
+5. Data splitting
+
+Model Pipeline:
+
+1. Model training
+2. Model Evaluation
+3. Model Testing
+4. Model Packaging
+
+Deployment Pipeline:
+
+1. Model Serving
+2. Model Performance Monitoring
+3. Model Performance Logging
+
