@@ -1,9 +1,9 @@
 package com.dcm.backend.demo.service;
 
-import com.dcm.backend.demo.dto.Job;
-import com.dcm.backend.demo.dto.Transaction;
-import com.dcm.backend.demo.dto.User;
-import com.dcm.backend.demo.dto.WorkerInfo;
+import com.dcm.backend.demo.dto.entity.Job;
+import com.dcm.backend.demo.dto.entity.Transaction;
+import com.dcm.backend.demo.dto.entity.User;
+import com.dcm.backend.demo.dto.entity.WorkerInfo;
 import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.TransactionRepository;
 import com.dcm.backend.demo.repository.UserRepository;
