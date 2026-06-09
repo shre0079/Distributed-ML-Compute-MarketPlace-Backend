@@ -1,4 +1,4 @@
-package com.dcm.backend.demo.dto;
+package com.dcm.backend.demo.dto.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
