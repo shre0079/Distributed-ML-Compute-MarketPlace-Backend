@@ -1,4 +1,4 @@
-package com.dcm.backend.demo.dto;
+package com.dcm.backend.demo.dto.request;
 
 import lombok.Data;
 
@@ -6,9 +6,8 @@ import lombok.Data;
 public class JobCreateRequest {
     public String dockerImage;
     public String fileUrl;
-
     public int requiredCpu;
     public int requiredMemoryMB;
     public boolean gpuRequired;
-    public String userId;
+    // userId  extracted from JWT now
 }
