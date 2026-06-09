@@ -1,6 +1,6 @@
 package com.dcm.backend.demo.service;
 
-import com.dcm.backend.demo.dto.Job;
+import com.dcm.backend.demo.dto.entity.Job;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

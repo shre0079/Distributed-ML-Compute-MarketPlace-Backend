@@ -1,4 +1,4 @@
-package com.dcm.backend.demo.dto;
+package com.dcm.backend.demo.dto.entity;
 
 import com.dcm.backend.demo.enums.JobStatus;
 import jakarta.persistence.*;

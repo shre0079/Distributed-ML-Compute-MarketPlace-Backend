@@ -1,6 +1,6 @@
 package com.dcm.backend.demo.repository;
 
-import com.dcm.backend.demo.dto.Job;
+import com.dcm.backend.demo.dto.entity.Job;
 import com.dcm.backend.demo.enums.JobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
