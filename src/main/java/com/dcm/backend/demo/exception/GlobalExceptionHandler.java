@@ -1,13 +1,17 @@
 package com.dcm.backend.demo.exception;
 
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -47,6 +51,31 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred: " + ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationErrors(
+            MethodArgumentNotValidException ex) {
+
+        String errors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+
+        return build(HttpStatus.BAD_REQUEST, errors);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(
+            ConstraintViolationException ex) {
+
+        String errors = ex.getConstraintViolations()
+                .stream()
+                .map(cv -> cv.getPropertyPath() + ": " + cv.getMessage())
+                .collect(Collectors.joining(", "));
+
+        return build(HttpStatus.BAD_REQUEST, errors);
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
