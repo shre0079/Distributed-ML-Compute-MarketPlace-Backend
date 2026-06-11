@@ -5,6 +5,8 @@ import com.dcm.backend.demo.dto.request.JobCreateRequest;
 import com.dcm.backend.demo.dto.entity.User;
 import com.dcm.backend.demo.dto.entity.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
+import com.dcm.backend.demo.exception.InsufficientBalanceException;
+import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
@@ -37,28 +39,44 @@ public class JobController {
     @PostMapping("/jobs/create")
     public Job createJob(@RequestBody JobCreateRequest request) {
 
-        // Extract userId from JWT — not from request body
         String userId = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName(); // getName() returns the subject = userId
+                .getAuthentication().getName();
+
+        // Validate maxRuntimeSeconds
+        if (request.maxRuntimeSeconds <= 0) {
+            throw new IllegalArgumentException("maxRuntimeSeconds must be greater than 0");
+        }
+
+        // Calculate estimate upfront
+        BigDecimal estimatedCost = BillingService.calculateEstimate(
+                request.maxRuntimeSeconds, request.gpuRequired);
+
+        // Check balance before creating job
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.walletBalance.compareTo(estimatedCost) < 0) {
+            throw new InsufficientBalanceException("Insufficient balance. Required: $"
+                    + estimatedCost + " Available: $" + user.walletBalance);
+        }
 
         String jobId = UUID.randomUUID().toString();
-        Job job = new Job(jobId, request.dockerImage, request.fileUrl, userId);
+        Job job = new Job(jobId, request.dockerImage,
+                request.fileUrl, userId, request.maxRuntimeSeconds);
         job.requiredCpu = request.requiredCpu;
         job.requiredMemoryMB = request.requiredMemoryMB;
         job.gpuRequired = request.gpuRequired;
-        job.userId = userId;
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        BigDecimal estimatedCost = BigDecimal.valueOf(0.01);
-        if (user.walletBalance.compareTo(estimatedCost) < 0) {
-            throw new RuntimeException("Insufficient wallet balance");
-        }
+        job.estimatedCost = estimatedCost;
 
         jobRepository.save(job);
-        System.out.println("Created job " + jobId + " for user " + userId);
+
+        // Pre-deduct estimated cost immediately
+        walletService.holdJobEstimate(job, user);
+
+        System.out.println("Created job " + jobId +
+                " | estimate=$" + estimatedCost +
+                " | maxRuntime=" + request.maxRuntimeSeconds + "s");
+
         return job;
     }
 
@@ -103,7 +121,6 @@ public class JobController {
 
         Job job = jobRepository.findById(jobId).orElseThrow();
 
-        // Guard: prevent double-payment if already processed
         if (job.status == JobStatus.SUCCESS) {
             System.out.println("Job " + jobId + " already processed, skipping.");
             return "ok";
@@ -111,27 +128,21 @@ public class JobController {
 
         job.durationMs = runtimeMs;
 
-        // Step 1: calculate billing on the in-memory object
+        // Calculate actual billing
         BillingService.calculateBilling(job);
-
-        // Step 2: persist cost/workerReward/platformFee to DB FIRST
         job.status = JobStatus.SUCCESS;
         jobRepository.save(job);
 
-        // Step 3: NOW wallet service can re-fetch job and find cost populated
+        // Process payment — refunds difference, pays worker actual
         walletService.processJobPayment(jobId);
 
         String logs = new String(body);
         Files.createDirectories(Path.of("results"));
         Files.writeString(Path.of("results", jobId + ".log"), logs);
 
-        System.out.println("Job " + jobId + " SUCCESS");
-        System.out.println(
-                "Job " + job.jobId +
-                        " cost=$" + String.format("%.8f", job.cost) +
-                        " workerEarned=$" + String.format("%.8f", job.workerReward) +
-                        " platformFee=$" + String.format("%.8f", job.platformFee)
-        );
+        System.out.println("Job " + jobId + " SUCCESS" +
+                " | actual=$" + job.cost +
+                " | estimate=$" + job.estimatedCost);
 
         return "ok";
     }
@@ -139,17 +150,20 @@ public class JobController {
     @PostMapping("/jobs/fail")
     public String failJob(@RequestParam String jobId) {
 
-        Job job =  jobRepository.findById(jobId).orElse(null);
+        Job job = jobRepository.findById(jobId).orElse(null);
 
         if (job != null) {
             job.retryCount++;
 
             if (job.retryCount < job.maxRetries) {
                 job.status = JobStatus.CREATED;
-                System.out.println("Retrying job " + jobId + " attempt " + job.retryCount);
+                System.out.println("Retrying job " + jobId +
+                        " attempt " + job.retryCount);
             } else {
                 job.status = JobStatus.FAILED;
-                System.out.println("Job " + jobId + " permanently FAILED");
+                // Full refund on permanent failure
+                walletService.processFailureRefund(jobId);
+                System.out.println("Job " + jobId + " permanently FAILED — refunded");
             }
             jobRepository.save(job);
         }
@@ -179,6 +193,25 @@ public class JobController {
 
         System.out.println("Saved artifact: " + file);
 
+        return "ok";
+    }
+
+    // report timeout
+    @PostMapping("/jobs/timeout")
+    public String timeoutJob(@RequestParam String jobId) {
+
+        Job job = jobRepository.findById(jobId).orElse(null);
+
+        if (job != null && job.status == JobStatus.RUNNING) {
+            job.status = JobStatus.TIMEOUT;
+            jobRepository.save(job);
+
+            // Charge full estimate, pay worker full
+            walletService.processTimeoutPayment(jobId);
+
+            System.out.println("Job " + jobId + " TIMEOUT" +
+                    " | charged=$" + job.estimatedCost);
+        }
         return "ok";
     }
 }
