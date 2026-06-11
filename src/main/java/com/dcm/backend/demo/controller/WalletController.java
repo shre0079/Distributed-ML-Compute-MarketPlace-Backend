@@ -19,7 +19,10 @@ public class WalletController {
     @PostMapping("/deposit")
     public User deposit(@RequestParam BigDecimal amount) {
 
-        // Extract userId from JWT
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Deposit amount must be greater than zero");
+        }
+
         String userId = SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getName();
