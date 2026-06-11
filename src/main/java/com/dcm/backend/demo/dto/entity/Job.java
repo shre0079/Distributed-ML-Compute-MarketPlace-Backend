@@ -56,6 +56,20 @@ public class Job {
 
     }
 
+    public Job(String jobId, String dockerImage, String fileUrl,
+               String userId, int maxRuntimeSeconds) {
+        this.jobId = jobId;
+        this.dockerImage = dockerImage;
+        this.fileUrl = fileUrl;
+        this.userId = userId;
+        this.maxRuntimeSeconds = maxRuntimeSeconds;
+        this.status = JobStatus.CREATED;
+        this.retryCount = 0;
+    }
+
+    public Job() {}
+
+
     public Job() {
     }
 }
