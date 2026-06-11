@@ -12,6 +12,8 @@ import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import com.dcm.backend.demo.service.BillingService;
 import com.dcm.backend.demo.service.WalletService;
+import com.dcm.backend.demo.service.WorkerService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -28,24 +30,27 @@ public class JobController {
 
     private final UserRepository userRepository;
     private final JobRepository jobRepository;
+    private final WorkerService workerService;
 
-    public JobController(UserRepository userRepository, JobRepository jobRepository, WorkerRepository workerRepository, WalletService walletService) {
+    public JobController(UserRepository userRepository, JobRepository jobRepository, WorkerService workerService, WorkerRepository workerRepository, WalletService walletService) {
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
+        this.workerService = workerService;
         this.workerRepository = workerRepository;
         this.walletService = walletService;
     }
 
     @PostMapping("/jobs/create")
-    public Job createJob(@RequestBody JobCreateRequest request) {
+    public Job createJob(@Valid
+            @RequestBody JobCreateRequest request) {
 
         String userId = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
 
         // Validate maxRuntimeSeconds
-        if (request.maxRuntimeSeconds <= 0) {
-            throw new IllegalArgumentException("maxRuntimeSeconds must be greater than 0");
-        }
+//        if (request.maxRuntimeSeconds <= 0) {
+//            throw new IllegalArgumentException("maxRuntimeSeconds must be greater than 0");
+//        }
 
         // Calculate estimate upfront
         BigDecimal estimatedCost = BillingService.calculateEstimate(
@@ -83,7 +88,9 @@ public class JobController {
     private final WorkerRepository workerRepository;
 
     @GetMapping("/jobs/poll/{workerId}")
-    public synchronized ResponseEntity<?> pollJob(@PathVariable String workerId) {
+    public synchronized ResponseEntity<?> pollJob(@Valid @PathVariable String workerId,@Valid  @RequestParam String workerSecret) {
+
+        workerService.validateWorker(workerId, workerSecret);
 
         WorkerInfo worker = workerRepository.findById(workerId).orElse(null);
 
@@ -114,12 +121,19 @@ public class JobController {
     private final WalletService walletService;
 
     @PostMapping("/jobs/result")
-    public String uploadResult(
+    public String uploadResult( @Valid
             @RequestParam String jobId,
+                                @Valid
             @RequestParam long runtimeMs,
+                                @Valid
+            @RequestParam String workerSecret,
+                                @Valid
             @RequestBody byte[] body) throws Exception {
 
-        Job job = jobRepository.findById(jobId).orElseThrow();
+        Job job = jobRepository.findById(jobId).orElseThrow(
+                () -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        workerService.validateWorker(job.workerId, workerSecret);
 
         if (job.status == JobStatus.SUCCESS) {
             System.out.println("Job " + jobId + " already processed, skipping.");
@@ -148,9 +162,16 @@ public class JobController {
     }
 
     @PostMapping("/jobs/fail")
-    public String failJob(@RequestParam String jobId) {
+    public String failJob(@Valid @RequestParam String jobId, @Valid @RequestParam String workerSecret) {
 
-        Job job = jobRepository.findById(jobId).orElse(null);
+
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Job not found: " + jobId));
+
+        workerService.validateWorker(job.workerId, workerSecret);
+
 
         if (job != null) {
             job.retryCount++;
@@ -176,13 +197,23 @@ public class JobController {
     }
 
     @GetMapping("/jobs/status/{status}")
-    public List<Job> getByStatus(@PathVariable JobStatus status) {
+    public List<Job> getByStatus(@Valid @PathVariable JobStatus status) {
         return jobRepository.findAllByStatus(status);
     }
 
     @PostMapping("/jobs/artifact")
-    public String uploadArtifact(@RequestParam String jobId,
+    public String uploadArtifact(@Valid @RequestParam String jobId,
+                                 @Valid
+                                 @RequestParam String workerSecret,
+                                 @Valid
                                  @RequestBody byte[] body) throws Exception {
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Job not found: " + jobId));
+
+        workerService.validateWorker(job.workerId, workerSecret);
+
 
         Path dir = Path.of("artifacts");
         Files.createDirectories(dir);
@@ -198,9 +229,17 @@ public class JobController {
 
     // report timeout
     @PostMapping("/jobs/timeout")
-    public String timeoutJob(@RequestParam String jobId) {
+    public String timeoutJob(@Valid
+            @RequestParam String jobId,
+                             @Valid
+                             @RequestParam String workerSecret) {
 
-        Job job = jobRepository.findById(jobId).orElse(null);
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Job not found: " + jobId));
+
+        workerService.validateWorker(job.workerId, workerSecret);
+
 
         if (job != null && job.status == JobStatus.RUNNING) {
             job.status = JobStatus.TIMEOUT;
@@ -214,4 +253,6 @@ public class JobController {
         }
         return "ok";
     }
+
+
 }
