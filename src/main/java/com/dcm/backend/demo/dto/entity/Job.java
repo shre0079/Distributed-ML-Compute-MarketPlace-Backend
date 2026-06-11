@@ -70,6 +70,4 @@ public class Job {
     public Job() {}
 
 
-    public Job() {
-    }
 }

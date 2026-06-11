@@ -21,4 +21,7 @@ public class WorkerInfo {
 
     @Column(precision = 12, scale = 8)
     public BigDecimal totalEarned = BigDecimal.ZERO;
+
+    @Column(nullable = false)
+    public String workerSecret; // BCrypt hashed
 }
