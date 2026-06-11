@@ -50,6 +50,16 @@ public class WorkerHealthScheduler {
         }
     }
 
+    // Called by WorkerController on registration
+    public void workerRegistered(String workerId, long lastSeen) {
+        workerLastSeen.put(workerId, lastSeen);
+    }
+
+    // Called by WorkerController on heartbeat
+    public void workerHeartbeat(String workerId) {
+        workerLastSeen.put(workerId, System.currentTimeMillis());
+    }
+
     @Scheduled(fixedRate = 5000)
     public void checkDeadWorkers() {
 
