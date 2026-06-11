@@ -4,12 +4,15 @@ import com.dcm.backend.demo.dto.entity.User;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.service.WalletService;
+import jakarta.validation.constraints.DecimalMin;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 
 @RestController
+@Validated
 public class WalletController {
 
     private final UserRepository userRepository;
@@ -23,11 +26,7 @@ public class WalletController {
     }
 
     @PostMapping("/deposit")
-    public User deposit(@RequestParam BigDecimal amount) {
-
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Deposit amount must be greater than zero");
-        }
+    public User deposit(@RequestParam @DecimalMin(value = "0.01", message = "Deposit amount must be at least $0.01") BigDecimal amount) {
 
         String userId = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
