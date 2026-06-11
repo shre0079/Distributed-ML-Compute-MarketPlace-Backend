@@ -9,5 +9,6 @@ public class JobCreateRequest {
     public int requiredCpu;
     public int requiredMemoryMB;
     public boolean gpuRequired;
+    public int maxRuntimeSeconds;
     // userId  extracted from JWT now
 }

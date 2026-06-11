@@ -40,6 +40,12 @@ public class Job {
     @Column(precision = 12, scale = 8)
     public BigDecimal platformFee;
 
+    @Column(nullable = false)
+    public int maxRuntimeSeconds;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal estimatedCost;
+
     public Job(String id, String image, String url, String userId) {
         this.jobId = id;
         this.dockerImage = image;
@@ -50,6 +56,18 @@ public class Job {
 
     }
 
-    public Job() {
+    public Job(String jobId, String dockerImage, String fileUrl,
+               String userId, int maxRuntimeSeconds) {
+        this.jobId = jobId;
+        this.dockerImage = dockerImage;
+        this.fileUrl = fileUrl;
+        this.userId = userId;
+        this.maxRuntimeSeconds = maxRuntimeSeconds;
+        this.status = JobStatus.CREATED;
+        this.retryCount = 0;
     }
+
+    public Job() {}
+
+
 }

@@ -4,6 +4,8 @@ import com.dcm.backend.demo.dto.entity.User;
 import com.dcm.backend.demo.dto.request.LoginRequest;
 import com.dcm.backend.demo.dto.request.UserRegistrationRequest;
 import com.dcm.backend.demo.dto.response.AuthResponse;
+import com.dcm.backend.demo.exception.ConflictException;
+import com.dcm.backend.demo.exception.UnauthorizedException;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.security.JwtUtil;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +33,7 @@ public class AuthService {
 
         // Check email already taken
         if (userRepository.findByEmail(request.email).isPresent()) {
-            throw new RuntimeException("Email already registered");
+            throw new ConflictException("Email already registered");
         }
 
         User user = new User();
@@ -50,7 +52,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.email)
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.password, user.password)) {
             throw new RuntimeException("Invalid email or password");
