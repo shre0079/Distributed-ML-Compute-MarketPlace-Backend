@@ -78,6 +78,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, errors);
     }
 
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimit(RateLimitException ex) {
+        return build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+    }
+
+
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", status.value());
