@@ -1,8 +1,10 @@
 package com.dcm.backend.demo.controller;
 
 import com.dcm.backend.demo.dto.entity.User;
+import com.dcm.backend.demo.exception.RateLimitException;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.UserRepository;
+import com.dcm.backend.demo.service.RateLimitService;
 import com.dcm.backend.demo.service.WalletService;
 import jakarta.validation.constraints.DecimalMin;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,12 +19,13 @@ public class WalletController {
 
     private final UserRepository userRepository;
     private final WalletService walletService;
+    private final RateLimitService rateLimitService;
 
 
-
-    public WalletController(UserRepository userRepository, WalletService walletService) {
+    public WalletController(UserRepository userRepository, WalletService walletService, RateLimitService rateLimitService) {
         this.userRepository = userRepository;
         this.walletService = walletService;
+        this.rateLimitService = rateLimitService;
     }
 
     @PostMapping("/deposit")
@@ -30,6 +33,12 @@ public class WalletController {
 
         String userId = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
+
+        // Rate limit per user
+        if (!rateLimitService.resolveDepositBucket(userId).tryConsume(1)) {
+            throw new RateLimitException(
+                    "Too many deposit requests. Try again in a minute.");
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
