@@ -46,16 +46,6 @@ public class Job {
     @Column(precision = 12, scale = 8)
     public BigDecimal estimatedCost;
 
-    public Job(String id, String image, String url, String userId) {
-        this.jobId = id;
-        this.dockerImage = image;
-        this.fileUrl = url;
-        this.status = JobStatus.CREATED;
-        this.retryCount = 0;
-        this.userId = userId;
-
-    }
-
     public Job(String jobId, String dockerImage, String fileUrl,
                String userId, int maxRuntimeSeconds) {
         this.jobId = jobId;
