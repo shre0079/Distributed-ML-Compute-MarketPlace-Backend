@@ -6,13 +6,16 @@ import com.dcm.backend.demo.dto.entity.User;
 import com.dcm.backend.demo.dto.entity.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.exception.InsufficientBalanceException;
+import com.dcm.backend.demo.exception.RateLimitException;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import com.dcm.backend.demo.service.BillingService;
+import com.dcm.backend.demo.service.RateLimitService;
 import com.dcm.backend.demo.service.WalletService;
 import com.dcm.backend.demo.service.WorkerService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,13 +34,15 @@ public class JobController {
     private final UserRepository userRepository;
     private final JobRepository jobRepository;
     private final WorkerService workerService;
+    private final RateLimitService rateLimitService;
 
-    public JobController(UserRepository userRepository, JobRepository jobRepository, WorkerService workerService, WorkerRepository workerRepository, WalletService walletService) {
+    public JobController(UserRepository userRepository, JobRepository jobRepository, WorkerService workerService, WorkerRepository workerRepository, WalletService walletService, RateLimitService rateLimitService, RateLimitService rateLimitService1) {
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
         this.workerService = workerService;
         this.workerRepository = workerRepository;
         this.walletService = walletService;
+        this.rateLimitService = rateLimitService1;
     }
 
     @PostMapping("/jobs/create")
@@ -47,10 +52,12 @@ public class JobController {
         String userId = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
 
-        // Validate maxRuntimeSeconds
-//        if (request.maxRuntimeSeconds <= 0) {
-//            throw new IllegalArgumentException("maxRuntimeSeconds must be greater than 0");
-//        }
+        // Rate limit per user
+        if (!rateLimitService.resolveJobCreateBucket(userId).tryConsume(1)) {
+            throw new RateLimitException(
+                    "Too many job creation requests. Try again in a minute.");
+        }
+
 
         // Calculate estimate upfront
         BigDecimal estimatedCost = BillingService.calculateEstimate(
@@ -89,6 +96,13 @@ public class JobController {
 
     @GetMapping("/jobs/poll/{workerId}")
     public synchronized ResponseEntity<?> pollJob(@Valid @PathVariable String workerId,@Valid  @RequestParam String workerSecret) {
+
+
+        // Rate limit per worker
+        if (!rateLimitService.resolvePollBucket(workerId).tryConsume(1)) {
+            throw new RateLimitException(
+                    "Polling too frequently. Slow down.");
+        }
 
         workerService.validateWorker(workerId, workerSecret);
 
@@ -255,4 +269,11 @@ public class JobController {
     }
 
 
+    private String getClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isEmpty()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
 }
