@@ -205,6 +205,16 @@ public class JobController {
         return "ok";
     }
 
+    @GetMapping("/jobs/{jobId}/logs")
+    public ResponseEntity<Map<String, Object>> getJobLogs(
+            @PathVariable String jobId) {
+
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        return ResponseEntity.ok(jobService.getJobLogs(jobId, userId));
+    }
+
     @GetMapping("/jobs")
     public List<Job> getAllJobs() {
         return jobRepository.findAll();
