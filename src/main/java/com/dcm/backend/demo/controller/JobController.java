@@ -241,26 +241,8 @@ public class JobController {
         return "ok";
     }
 
-    // report timeout
-    @PostMapping("/jobs/timeout")
-    public String timeoutJob(@Valid
-            @RequestParam String jobId,
-                             @Valid
-                             @RequestParam String workerSecret) {
-
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Job not found: " + jobId));
-
-        workerService.validateWorker(job.workerId, workerSecret);
-
-
-        if (job != null && job.status == JobStatus.RUNNING) {
-            job.status = JobStatus.TIMEOUT;
-            jobRepository.save(job);
-
-            // Charge full estimate, pay worker full
-            walletService.processTimeoutPayment(jobId);
+    @PostMapping("/jobs/{jobId}/cancel")
+    public ResponseEntity<Job> cancelJob(@PathVariable String jobId) {
 
             System.out.println("Job " + jobId + " TIMEOUT" +
                     " | charged=$" + job.estimatedCost);
