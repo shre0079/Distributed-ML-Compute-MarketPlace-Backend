@@ -46,6 +46,9 @@ public class Job {
     @Column(precision = 12, scale = 8)
     public BigDecimal estimatedCost;
 
+    @Column(columnDefinition = "TEXT")
+    public String logs;
+
     public Job(String jobId, String dockerImage, String fileUrl,
                String userId, int maxRuntimeSeconds) {
         this.jobId = jobId;
