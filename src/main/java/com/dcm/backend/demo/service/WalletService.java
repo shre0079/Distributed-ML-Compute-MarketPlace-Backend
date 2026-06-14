@@ -153,6 +153,30 @@ public class WalletService {
         recordTransaction(userId, null, null, "DEPOSIT", amount);
     }
 
+    // Called when user cancels a CREATED job — full refund
+    @Transactional
+    public void processJobCancellation(String jobId) {
+
+        Job job = jobRepo.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Job not found: " + jobId));
+
+        User user = userRepo.findById(job.userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found: " + job.userId));
+
+        // Full refund of pre-deducted estimate
+        user.walletBalance = user.walletBalance.add(job.estimatedCost);
+        userRepo.save(user);
+
+        recordTransaction(user.userId, null, jobId,
+                "REFUND", job.estimatedCost);
+
+        System.out.println("Job " + jobId + " cancelled" +
+                " | refunded=$" + job.estimatedCost +
+                " to user " + user.userId);
+    }
+
     private void recordTransaction(String userId, String workerId,
                                    String jobId, String type,
                                    BigDecimal amount) {
