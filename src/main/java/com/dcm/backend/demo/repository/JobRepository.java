@@ -15,4 +15,12 @@ public interface JobRepository extends JpaRepository<Job, String> {
     List<Job> findAllByStatus(JobStatus status);
 
     List<Job> findAllByWorkerIdAndStatus(String workerId, JobStatus status);
+
+    // Count jobs by worker and status
+    int countByWorkerIdAndStatus(String workerId, JobStatus status);
+
+    List<Job> findAllByTargetWorkerIdAndStatus(String targetWorkerId, JobStatus status);
+    List<Job> findAllByTargetWorkerIdOrderByCreatedAtDesc(String targetWorkerId);
+    List<Job> findAllByUserId(String userId);
+    List<Job> findAllByUserIdAndStatus(String userId, JobStatus status);
 }
