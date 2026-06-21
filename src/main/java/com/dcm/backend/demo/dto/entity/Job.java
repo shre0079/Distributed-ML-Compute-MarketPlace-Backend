@@ -1,6 +1,7 @@
 package com.dcm.backend.demo.dto.entity;
 
 import com.dcm.backend.demo.enums.JobStatus;
+import com.dcm.backend.demo.enums.Priority;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
@@ -49,6 +50,22 @@ public class Job {
     @Column(columnDefinition = "TEXT")
     public String logs;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    public Priority priority = Priority.NORMAL;
+
+    @Column(nullable = false)
+    public long createdAt = System.currentTimeMillis();
+
+    @Column(nullable = false)
+    public String targetWorkerId;       // the specific worker this job is for
+
+    @Column(nullable = false)
+    public long expiresAt;              // CREATED jobs expire if not picked up by this time
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal lockedRatePerSecond;  // rate frozen at job creation time
+
     public Job(String jobId, String dockerImage, String fileUrl,
                String userId, int maxRuntimeSeconds) {
         this.jobId = jobId;
@@ -58,6 +75,7 @@ public class Job {
         this.maxRuntimeSeconds = maxRuntimeSeconds;
         this.status = JobStatus.CREATED;
         this.retryCount = 0;
+        this.createdAt = System.currentTimeMillis();
     }
 
     public Job() {}
