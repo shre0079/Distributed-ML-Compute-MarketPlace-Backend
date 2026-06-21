@@ -1,5 +1,6 @@
 package com.dcm.backend.demo.dto.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -17,6 +18,8 @@ public class Transaction {
     public String workerId;
     public String jobId;
     public String type;
+
+    @Column(precision = 12, scale = 8)
     public BigDecimal amount;
     public long timestamp;
 }
