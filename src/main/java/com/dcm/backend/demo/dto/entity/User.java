@@ -18,6 +18,7 @@ public class User {
     public String email;
 
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String password; // stores BCrypt hash, never plaintext
 
     @Column(precision = 12, scale = 8)
