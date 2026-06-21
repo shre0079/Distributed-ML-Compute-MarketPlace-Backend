@@ -1,6 +1,7 @@
 package com.dcm.backend.demo.service;
 
 import com.dcm.backend.demo.dto.entity.Job;
+import com.dcm.backend.demo.enums.Priority;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,22 +21,31 @@ public class BillingService {
     private static final BigDecimal PRIORITY_HIGH_MULTIPLIER = BigDecimal.valueOf(1.5);
     private static final BigDecimal PRIORITY_URGENT_MULTIPLIER = BigDecimal.valueOf(2.0);
 
-    public static void calculateBilling(Job job) {
+    public static BigDecimal getPriorityMultiplier(Priority priority) {
+        return switch (priority) {
+            case LOW -> PRIORITY_LOW_MULTIPLIER;
+            case NORMAL -> PRIORITY_NORMAL_MULTIPLIER;
+            case HIGH -> PRIORITY_HIGH_MULTIPLIER;
+            case URGENT -> PRIORITY_URGENT_MULTIPLIER;
+        };
+    }
 
-        BigDecimal runtime = BigDecimal.valueOf(job.durationMs)
+
+    // Called at job completion — uses the rate LOCKED into the job at creation time
+    public static void calculateBilling(Job job) {
+        BigDecimal multiplier = getPriorityMultiplier(job.priority);
+
+        BigDecimal runtimeSeconds = BigDecimal.valueOf(job.durationMs)
                 .divide(BigDecimal.valueOf(1000), 8, RoundingMode.HALF_UP);
 
-        BigDecimal rate = job.gpuRequired
-                ? BigDecimal.valueOf(GPU_RATE)
-                : BigDecimal.valueOf(CPU_RATE);
-
-        BigDecimal cost = runtime.multiply(rate);
-
-        job.cost = cost.setScale(8, RoundingMode.HALF_UP);
-        job.workerReward = cost.multiply(BigDecimal.valueOf(0.7))
+        BigDecimal cost = runtimeSeconds
+                .multiply(job.lockedRatePerSecond)
+                .multiply(multiplier)
                 .setScale(8, RoundingMode.HALF_UP);
-        job.platformFee = cost.multiply(BigDecimal.valueOf(0.3))
-                .setScale(8, RoundingMode.HALF_UP);
+
+        job.cost = cost;
+        job.workerReward = cost.multiply(WORKER_SHARE).setScale(8, RoundingMode.HALF_UP);
+        job.platformFee = cost.multiply(PLATFORM_SHARE).setScale(8, RoundingMode.HALF_UP);
     }
 
     // Called at job creation — rate comes from the TARGETED worker, not a platform constant
@@ -44,7 +54,8 @@ public class BillingService {
                                                Priority priority) {
         BigDecimal multiplier = getPriorityMultiplier(priority);
         return BigDecimal.valueOf(maxRuntimeSeconds)
-                .multiply(rate)
+                .multiply(ratePerSecond)
+                .multiply(multiplier)
                 .setScale(8, RoundingMode.HALF_UP);
     }
 
