@@ -43,15 +43,72 @@ public class JobService {
         this.workerService = workerService;
     }
 
+//    @Transactional
+//    public Job createJob(JobCreateRequest request, String userId) {
+//
+//        BigDecimal estimatedCost = BillingService.calculateEstimate(
+//                request.maxRuntimeSeconds, request.gpuRequired, request.priority);
+//
+//        User user = userRepository.findById(userId)
+//                .orElseThrow(() -> new ResourceNotFoundException(
+//                        "User not found: " + userId));
+//
+//        if (user.walletBalance.compareTo(estimatedCost) < 0) {
+//            throw new InsufficientBalanceException(
+//                    "Insufficient balance. Required: $" + estimatedCost
+//                            + " Available: $" + user.walletBalance);
+//        }
+//
+//        String jobId = UUID.randomUUID().toString();
+//        Job job = new Job(jobId, request.dockerImage,
+//                request.fileUrl, userId, request.maxRuntimeSeconds);
+//        job.requiredCpu = request.requiredCpu;
+//        job.requiredMemoryMB = request.requiredMemoryMB;
+//        job.gpuRequired = request.gpuRequired;
+//        job.estimatedCost = estimatedCost;
+//        job.priority = request.priority;
+//
+//        jobRepository.save(job);
+//        walletService.holdJobEstimate(job, user);
+//
+//        System.out.println("Created job " + jobId +
+//                " | estimate=$" + estimatedCost +
+//                " | maxRuntime=" + request.maxRuntimeSeconds + "s");
+//
+//        return job;
+//    }
+
     @Transactional
     public Job createJob(JobCreateRequest request, String userId) {
 
+        WorkerInfo targetWorker = workerRepository.findById(request.targetWorkerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Worker not found: " + request.targetWorkerId));
+
+        if (!workerService.isWorkerOnline(request.targetWorkerId)) {
+            throw new IllegalArgumentException(
+                    "Worker " + request.targetWorkerId + " is currently offline");
+        }
+
+        boolean compatible =
+                targetWorker.cpuCores >= request.requiredCpu &&
+                        targetWorker.memoryMB >= request.requiredMemoryMB &&
+                        (!request.gpuRequired || targetWorker.hasGpu);
+
+        if (!compatible) {
+            throw new IllegalArgumentException(
+                    "Worker " + request.targetWorkerId + " does not meet job requirements");
+        }
+
+        BigDecimal baseRate = request.gpuRequired
+                ? targetWorker.gpuRatePerSecond
+                : targetWorker.cpuRatePerSecond;
+
         BigDecimal estimatedCost = BillingService.calculateEstimate(
-                request.maxRuntimeSeconds, request.gpuRequired);
+                request.maxRuntimeSeconds, baseRate, request.priority);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         if (user.walletBalance.compareTo(estimatedCost) < 0) {
             throw new InsufficientBalanceException(
@@ -60,31 +117,72 @@ public class JobService {
         }
 
         String jobId = UUID.randomUUID().toString();
-        Job job = new Job(jobId, request.dockerImage,
-                request.fileUrl, userId, request.maxRuntimeSeconds);
+        Job job = new Job(jobId, request.dockerImage, request.fileUrl,
+                userId, request.maxRuntimeSeconds);
         job.requiredCpu = request.requiredCpu;
         job.requiredMemoryMB = request.requiredMemoryMB;
         job.gpuRequired = request.gpuRequired;
         job.estimatedCost = estimatedCost;
+        job.priority = request.priority;
+        job.targetWorkerId = request.targetWorkerId;
+        job.lockedRatePerSecond = baseRate;
+        job.expiresAt = System.currentTimeMillis() + (5 * 60 * 1000); // 5 min window
 
         jobRepository.save(job);
         walletService.holdJobEstimate(job, user);
 
         System.out.println("Created job " + jobId +
-                " | estimate=$" + estimatedCost +
-                " | maxRuntime=" + request.maxRuntimeSeconds + "s");
+                " | target=" + request.targetWorkerId +
+                " | lockedRate=$" + baseRate + "/s" +
+                " | estimate=$" + estimatedCost);
 
         return job;
     }
 
+
+//    public synchronized Job pollJob(String workerId) {
+//
+//        WorkerInfo worker = workerRepository.findById(workerId).orElse(null);
+//        if (worker == null) return null;
+//
+//        List<Job> jobs = jobRepository.findAllByStatus(JobStatus.CREATED);
+//
+//        // Sort: highest priority first, then oldest createdAt first (FIFO within priority)
+//        jobs.sort((a, b) -> {
+//            int priorityCompare = Integer.compare(
+//                    b.priority.weight, a.priority.weight); // descending
+//            if (priorityCompare != 0) return priorityCompare;
+//            return Long.compare(a.createdAt, b.createdAt); // ascending (oldest first)
+//        });
+//
+//        for (Job job : jobs) {
+//            boolean compatible =
+//                    worker.cpuCores >= job.requiredCpu &&
+//                            worker.memoryMB >= job.requiredMemoryMB &&
+//                            (!job.gpuRequired || worker.hasGpu);
+//
+//            if (compatible) {
+//                job.status = JobStatus.RUNNING;
+//                job.workerId = workerId;
+//                jobRepository.save(job);
+//                return job;
+//            }
+//        }
+//        return null;
+//    }
+
     public synchronized Job pollJob(String workerId) {
 
-        WorkerInfo worker = workerRepository.findById(workerId)
-                .orElse(null);
-
+        WorkerInfo worker = workerRepository.findById(workerId).orElse(null);
         if (worker == null) return null;
 
-        List<Job> jobs = jobRepository.findAllByStatus(JobStatus.CREATED);
+        List<Job> jobs = jobRepository
+                .findAllByTargetWorkerIdAndStatus(workerId, JobStatus.CREATED);
+
+        jobs.sort((a, b) -> {
+            int p = Integer.compare(b.priority.weight, a.priority.weight);
+            return p != 0 ? p : Long.compare(a.createdAt, b.createdAt);
+        });
 
         for (Job job : jobs) {
             boolean compatible =
@@ -124,11 +222,13 @@ public class JobService {
 
         walletService.processJobPayment(jobId);
 
+        // ← new — reward reputation on success
+        workerService.onJobSuccess(job.workerId);
+
         Files.createDirectories(Path.of("results"));
         Files.writeString(Path.of("results", jobId + ".log"), logs);
 
-        System.out.println("Job " + jobId + " SUCCESS" +
-                " | actual=$" + job.cost);
+        System.out.println("Job " + jobId + " SUCCESS | actual=$" + job.cost);
     }
 
     @Transactional
@@ -149,6 +249,10 @@ public class JobService {
         } else {
             job.status = JobStatus.FAILED;
             walletService.processFailureRefund(jobId);
+
+            // ← new — penalize reputation on permanent failure
+            workerService.onJobFailed(job.workerId);
+
             System.out.println("Job " + jobId + " permanently FAILED — refunded");
         }
         jobRepository.save(job);
@@ -173,6 +277,9 @@ public class JobService {
         jobRepository.save(job);
 
         walletService.processTimeoutPayment(jobId);
+
+        // ← new — small penalty on timeout
+        workerService.onJobTimeout(job.workerId);
 
         System.out.println("Job " + jobId + " TIMEOUT");
     }
@@ -237,5 +344,13 @@ public class JobService {
         System.out.println("Job " + jobId + " cancelled by user " + userId);
 
         return job;
+    }
+
+    public List<Job> getAllJobsForUser(String userId) {
+        return jobRepository.findAllByUserId(userId);
+    }
+
+    public List<Job> getJobsByStatusForUser(String userId, JobStatus status) {
+        return jobRepository.findAllByUserIdAndStatus(userId, status);
     }
 }
