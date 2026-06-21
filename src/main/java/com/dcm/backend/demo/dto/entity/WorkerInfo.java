@@ -1,5 +1,7 @@
 package com.dcm.backend.demo.dto.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -31,6 +33,7 @@ public class WorkerInfo {
 
     @NotBlank(message = "Worker secret is required")
     @Size(min = 16, message = "Worker secret must be at least 16 characters")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String workerSecret;
 
     @Column(precision = 12, scale = 8)
@@ -38,4 +41,13 @@ public class WorkerInfo {
 
     @Column(precision = 12, scale = 8)
     public BigDecimal totalEarned = BigDecimal.ZERO; // BCrypt hashed
+
+    @Column(precision = 5, scale = 2)
+    public BigDecimal reputation = BigDecimal.valueOf(100.00);
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal cpuRatePerSecond;
+
+    @Column(precision = 12, scale = 8)
+    public BigDecimal gpuRatePerSecond;
 }

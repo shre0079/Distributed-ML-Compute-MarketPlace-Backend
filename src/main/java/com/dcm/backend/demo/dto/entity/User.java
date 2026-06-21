@@ -1,9 +1,9 @@
 package com.dcm.backend.demo.dto.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.dcm.backend.demo.enums.Role;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 
@@ -18,8 +18,13 @@ public class User {
     public String email;
 
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String password; // stores BCrypt hash, never plaintext
 
     @Column(precision = 12, scale = 8)
     public BigDecimal walletBalance = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    public Role role = Role.USER;
 }

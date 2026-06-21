@@ -36,12 +36,20 @@ public class SecurityConfig {
                                 "/user/login",
                                 "/files/**",
                                 "/register",
+                                "/workers",
+                                "/workers/**",
                                 "/workers/heartbeat",
                                 "/jobs/poll/**",
                                 "/jobs/result",
                                 "/jobs/fail",
-                                "/jobs/artifact"
-                        ).permitAll()
+                                "/jobs/artifact",
+                                "/workers/withdraw",
+                                "/workers/*/withdrawals",
+                                "/workers/rate",
+                                "/jobs/timeout"
+                                ).permitAll()
+
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
 
                         // Everything else requires JWT
                         .anyRequest().authenticated()

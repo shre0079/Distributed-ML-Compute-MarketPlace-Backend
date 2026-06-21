@@ -1,5 +1,6 @@
 package com.dcm.backend.demo.dto.request;
 
+import com.dcm.backend.demo.enums.Priority;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -16,7 +17,8 @@ public class JobCreateRequest {
     @Min(value = 1, message = "requiredCpu must be at least 1")
     public int requiredCpu;
 
-    @Min(value = 128, message = "requiredMemoryMB must be at least 128MB")
+    @Min(value = 128, message = "requiredMemoryMB must be at least 128MB. " +
+            "Note: most Docker images need at least 256MB to start.")
     public int requiredMemoryMB;
 
     public boolean gpuRequired;
@@ -25,4 +27,9 @@ public class JobCreateRequest {
     @Max(value = 86400, message = "maxRuntimeSeconds cannot exceed 24 hours (86400 seconds)")
     public int maxRuntimeSeconds;
     // userId  extracted from JWT now
+
+    @NotBlank(message = "targetWorkerId is required — choose a worker from GET /workers")
+    public String targetWorkerId;
+
+    public Priority priority = Priority.NORMAL;
 }
