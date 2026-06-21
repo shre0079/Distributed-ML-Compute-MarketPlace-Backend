@@ -48,8 +48,6 @@ public class BillingService {
 
     // Calculates refund after job completes
     public static BigDecimal calculateRefund(Job job) {
-        return job.estimatedCost
-                .subtract(job.cost)
-                .setScale(8, RoundingMode.HALF_UP);
+        return job.estimatedCost.subtract(job.cost).setScale(8, RoundingMode.HALF_UP);
     }
 }
