@@ -12,8 +12,13 @@ public class BillingService {
     private static final double CPU_RATE = 0.0002; // per second
     private static final double GPU_RATE = 0.001;  // per second
 
-    private static final double WORKER_SHARE = 0.7;
-    private static final double PLATFORM_SHARE = 0.3;
+    private static final BigDecimal WORKER_SHARE = BigDecimal.valueOf(0.7);
+    private static final BigDecimal PLATFORM_SHARE = BigDecimal.valueOf(0.3);
+
+    private static final BigDecimal PRIORITY_LOW_MULTIPLIER = BigDecimal.valueOf(0.8);
+    private static final BigDecimal PRIORITY_NORMAL_MULTIPLIER = BigDecimal.valueOf(1.0);
+    private static final BigDecimal PRIORITY_HIGH_MULTIPLIER = BigDecimal.valueOf(1.5);
+    private static final BigDecimal PRIORITY_URGENT_MULTIPLIER = BigDecimal.valueOf(2.0);
 
     public static void calculateBilling(Job job) {
 
