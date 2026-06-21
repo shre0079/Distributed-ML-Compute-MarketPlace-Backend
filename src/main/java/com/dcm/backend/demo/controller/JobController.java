@@ -96,15 +96,15 @@ public class JobController {
         return ResponseEntity.ok(jobService.getJobLogs(jobId, userId));
     }
 
-    @GetMapping("/jobs")
-    public List<Job> getAllJobs() {
-        return jobService.getAllJobs();
-    }
+//    @GetMapping("/jobs")
+//    public List<Job> getAllJobs() {
+//        return jobService.getAllJobs();
+//    }
 
-    @GetMapping("/jobs/status/{status}")
-    public List<Job> getJobsByStatus(@PathVariable JobStatus status) {
-        return jobService.getJobsByStatus(status);
-    }
+//    @GetMapping("/jobs/status/{status}")
+//    public List<Job> getJobsByStatus(@PathVariable JobStatus status) {
+//        return jobService.getJobsByStatus(status);
+//    }
 
     @PostMapping("/jobs/artifact")
     public String uploadArtifact(
@@ -127,5 +127,23 @@ public class JobController {
 
         Job job = jobService.cancelJob(jobId, userId);
         return ResponseEntity.ok(job);
+    }
+
+    @GetMapping("/jobs")
+    public List<Job> getAllJobs() {
+
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        return jobService.getAllJobsForUser(userId);
+    }
+
+    @GetMapping("/jobs/status/{status}")
+    public List<Job> getJobsByStatus(@PathVariable JobStatus status) {
+
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        return jobService.getJobsByStatusForUser(userId, status);
     }
 }
