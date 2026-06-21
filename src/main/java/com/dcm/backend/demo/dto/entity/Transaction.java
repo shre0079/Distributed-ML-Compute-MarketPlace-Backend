@@ -12,6 +12,7 @@ public class Transaction {
 
     @Id
     public String transactionId;
+    @Column(nullable = false)
     public String userId;
     public String workerId;
     public String jobId;
