@@ -1,5 +1,6 @@
 package com.dcm.backend.demo.security;
 
+import com.dcm.backend.demo.enums.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -23,10 +24,11 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String userId, String email) {
+    public String generateToken(String userId, String email, Role role) {
         return Jwts.builder()
                 .subject(userId)
                 .claim("email", email)
+                .claim("role", role.name())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSigningKey())
@@ -35,6 +37,10 @@ public class JwtUtil {
 
     public String getUserIdFromToken(String token) {
         return parseClaims(token).getSubject();
+    }
+
+    public String getRoleFromToken(String token) {
+        return parseClaims(token).get("role", String.class);
     }
 
     public String getEmailFromToken(String token) {
