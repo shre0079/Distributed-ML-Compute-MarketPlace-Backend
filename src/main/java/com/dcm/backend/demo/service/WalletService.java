@@ -1,14 +1,10 @@
 package com.dcm.backend.demo.service;
 
-import com.dcm.backend.demo.dto.entity.Job;
-import com.dcm.backend.demo.dto.entity.Transaction;
-import com.dcm.backend.demo.dto.entity.User;
-import com.dcm.backend.demo.dto.entity.WorkerInfo;
+import com.dcm.backend.demo.dto.entity.*;
+import com.dcm.backend.demo.enums.WithdrawalStatus;
+import com.dcm.backend.demo.exception.InsufficientBalanceException;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
-import com.dcm.backend.demo.repository.JobRepository;
-import com.dcm.backend.demo.repository.TransactionRepository;
-import com.dcm.backend.demo.repository.UserRepository;
-import com.dcm.backend.demo.repository.WorkerRepository;
+import com.dcm.backend.demo.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -22,15 +18,17 @@ public class WalletService {
     private final JobRepository jobRepo;
     private final WorkerRepository workerRepo;
     private final TransactionRepository transactionRepo;
+    private final WithdrawalRepository withdrawalRepo;
 
     public WalletService(UserRepository userRepo,
                          JobRepository jobRepo,
                          WorkerRepository workerRepo,
-                         TransactionRepository transactionRepo) {
+                         TransactionRepository transactionRepo, WithdrawalRepository withdrawalRepo) {
         this.userRepo = userRepo;
         this.jobRepo = jobRepo;
         this.workerRepo = workerRepo;
         this.transactionRepo = transactionRepo;
+        this.withdrawalRepo = withdrawalRepo;
     }
 
     // Called at job creation — pre-deduct estimated cost
@@ -189,5 +187,115 @@ public class WalletService {
         txn.amount = amount;
         txn.timestamp = System.currentTimeMillis();
         transactionRepo.save(txn);
+    }
+
+    // Worker requests withdrawal — deduct immediately, mark PENDING
+    @Transactional
+    public WithdrawalRequest requestWithdrawal(String workerId, BigDecimal amount) {
+
+        WorkerInfo worker = workerRepo.findById(workerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Worker not found: " + workerId));
+
+        if (worker.walletBalance.compareTo(amount) < 0) {
+            throw new InsufficientBalanceException(
+                    "Insufficient balance. Available: $" + worker.walletBalance);
+        }
+
+        // Deduct immediately — funds are held pending approval
+        worker.walletBalance = worker.walletBalance.subtract(amount);
+        workerRepo.save(worker);
+
+        WithdrawalRequest withdrawal = new WithdrawalRequest(
+                UUID.randomUUID().toString(), workerId, amount);
+        withdrawalRepo.save(withdrawal);
+
+        recordTransaction(null, workerId, null,
+                "WITHDRAWAL_HOLD", amount.negate());
+
+        System.out.println("Withdrawal requested: worker=" + workerId +
+                " amount=$" + amount);
+
+        return withdrawal;
+    }
+
+    // Admin approves — funds officially leave the platform
+    @Transactional
+    public WithdrawalRequest approveWithdrawal(String withdrawalId) {
+
+        WithdrawalRequest withdrawal = withdrawalRepo.findById(withdrawalId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Withdrawal not found: " + withdrawalId));
+
+        if (withdrawal.status != WithdrawalStatus.PENDING) {
+            throw new IllegalArgumentException(
+                    "Withdrawal already resolved with status: " + withdrawal.status);
+        }
+
+        withdrawal.status = WithdrawalStatus.APPROVED;
+        withdrawal.resolvedAt = System.currentTimeMillis();
+        withdrawalRepo.save(withdrawal);
+
+        recordTransaction(null, withdrawal.workerId, null,
+                "WITHDRAWAL_APPROVED", withdrawal.amount.negate());
+
+        System.out.println("Withdrawal approved: " + withdrawalId +
+                " | worker=" + withdrawal.workerId +
+                " | amount=$" + withdrawal.amount);
+
+        return withdrawal;
+    }
+
+    // Admin rejects — refund the held amount back to worker
+    @Transactional
+    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason) {
+
+        WithdrawalRequest withdrawal = withdrawalRepo.findById(withdrawalId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Withdrawal not found: " + withdrawalId));
+
+        if (withdrawal.status != WithdrawalStatus.PENDING) {
+            throw new IllegalArgumentException(
+                    "Withdrawal already resolved with status: " + withdrawal.status);
+        }
+
+        WorkerInfo worker = workerRepo.findById(withdrawal.workerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Worker not found: " + withdrawal.workerId));
+
+        // Refund the held amount
+        worker.walletBalance = worker.walletBalance.add(withdrawal.amount);
+        workerRepo.save(worker);
+
+        withdrawal.status = WithdrawalStatus.REJECTED;
+        withdrawal.resolvedAt = System.currentTimeMillis();
+        withdrawal.adminNote = reason;
+        withdrawalRepo.save(withdrawal);
+
+        recordTransaction(null, withdrawal.workerId, null,
+                "WITHDRAWAL_REJECTED", withdrawal.amount);
+
+        System.out.println("Withdrawal rejected: " + withdrawalId +
+                " | refunded=$" + withdrawal.amount);
+
+        return withdrawal;
+    }
+
+    @Transactional
+    public void processJobExpiry(String jobId) {
+
+        Job job = jobRepo.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        User user = userRepo.findById(job.userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + job.userId));
+
+        user.walletBalance = user.walletBalance.add(job.estimatedCost);
+        userRepo.save(user);
+
+        recordTransaction(user.userId, null, jobId, "REFUND", job.estimatedCost);
+
+        System.out.println("Job " + jobId + " expired (worker never picked it up)" +
+                " | refunded=$" + job.estimatedCost);
     }
 }
