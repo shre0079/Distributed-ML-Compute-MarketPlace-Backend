@@ -50,6 +50,13 @@ public class WorkerService {
             worker.workerSecret = passwordEncoder.encode(workerInfo.workerSecret);
         }
 
+        // Rates only set on FIRST registration — later changes go through PUT /workers/rate
+        if (isNewWorker) {
+            validateRateBounds(workerInfo.cpuRatePerSecond, workerInfo.gpuRatePerSecond);
+            worker.cpuRatePerSecond = workerInfo.cpuRatePerSecond;
+            worker.gpuRatePerSecond = workerInfo.gpuRatePerSecond;
+        }
+
         workerRepository.save(worker);
         workerHealthScheduler.workerRegistered(worker.workerId, worker.lastSeen);
 
