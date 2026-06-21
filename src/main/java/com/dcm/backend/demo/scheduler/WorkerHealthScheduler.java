@@ -90,4 +90,9 @@ public class WorkerHealthScheduler {
             }
         }
     }
+
+    // Expose last seen time for a specific worker
+    public Long getLastSeen(String workerId) {
+        return workerLastSeen.get(workerId);
+    }
 }
