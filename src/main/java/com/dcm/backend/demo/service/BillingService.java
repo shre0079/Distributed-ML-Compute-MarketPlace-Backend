@@ -38,9 +38,11 @@ public class BillingService {
                 .setScale(8, RoundingMode.HALF_UP);
     }
 
-    // Called at job creation to calculate pre-deduction amount
-    public static BigDecimal calculateEstimate(int maxRuntimeSeconds, boolean gpuRequired) {
-        BigDecimal rate = BigDecimal.valueOf(gpuRequired ? GPU_RATE : CPU_RATE);
+    // Called at job creation — rate comes from the TARGETED worker, not a platform constant
+    public static BigDecimal calculateEstimate(int maxRuntimeSeconds,
+                                               BigDecimal ratePerSecond,
+                                               Priority priority) {
+        BigDecimal multiplier = getPriorityMultiplier(priority);
         return BigDecimal.valueOf(maxRuntimeSeconds)
                 .multiply(rate)
                 .setScale(8, RoundingMode.HALF_UP);
