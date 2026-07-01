@@ -86,6 +86,15 @@ public class JobController {
         return "ok";
     }
 
+    @GetMapping("/jobs/{jobId}")
+    public Job getJob(@PathVariable String jobId) {
+
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        return jobService.getJobById(jobId, userId);
+    }
+
     @GetMapping("/jobs/{jobId}/logs")
     public ResponseEntity<Map<String, Object>> getJobLogs(
             @PathVariable String jobId) {

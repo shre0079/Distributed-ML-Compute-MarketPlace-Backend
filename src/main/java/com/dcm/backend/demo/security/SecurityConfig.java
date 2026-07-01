@@ -24,6 +24,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
+                .cors(cors -> {}) // Enables CORS support
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -47,7 +48,7 @@ public class SecurityConfig {
                                 "/workers/*/withdrawals",
                                 "/workers/rate",
                                 "/jobs/timeout"
-                                ).permitAll()
+                        ).permitAll()
 
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 
@@ -64,4 +65,6 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+
 }

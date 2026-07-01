@@ -19,11 +19,17 @@ public class WorkerStatusResponse {
     public BigDecimal reputation;// total SUCCESS jobs
     public BigDecimal cpuRatePerSecond;
     public BigDecimal gpuRatePerSecond;
+    public BigDecimal walletBalance;
 
     public WorkerStatusResponse(String workerId, String os, int cpuCores,
                                 long memoryMB, boolean hasGpu, boolean online,
                                 long lastSeenMs, BigDecimal totalEarned,
-                                int activeJobs, int completedJobs, BigDecimal reputation, BigDecimal cpuRatePerSecond, BigDecimal gpuRatePerSecond) {
+                                int activeJobs,
+                                int completedJobs,
+                                BigDecimal reputation,
+                                BigDecimal cpuRatePerSecond,
+                                BigDecimal gpuRatePerSecond,
+                                BigDecimal walletBalance) {
         this.workerId = workerId;
         this.os = os;
         this.cpuCores = cpuCores;
@@ -39,5 +45,6 @@ public class WorkerStatusResponse {
         this.reputation=reputation;
         this.cpuRatePerSecond = cpuRatePerSecond;
         this.gpuRatePerSecond = gpuRatePerSecond;
+        this.walletBalance=walletBalance;
     }
 }

@@ -307,6 +307,20 @@ public class JobService {
         return response;
     }
 
+    public Job getJobById(String jobId, String userId) {
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Job not found: " + jobId));
+
+        if (!job.userId.equals(userId)) {
+            throw new UnauthorizedException(
+                    "You don't have access to this job");
+        }
+
+        return job;
+    }
+
     public List<Job> getAllJobs() {
         return jobRepository.findAll();
     }

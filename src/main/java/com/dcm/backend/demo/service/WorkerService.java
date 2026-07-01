@@ -132,7 +132,9 @@ public class WorkerService {
         long effectiveLastSeen = lastHeartbeat != null ? lastHeartbeat : worker.lastSeen;
 
 
-        boolean online = (now - worker.lastSeen) <= 15000;
+//        boolean online = (now - worker.lastSeen) <= 15000;
+
+        boolean online = (now - effectiveLastSeen) <= 15000;
 
         int activeJobs = jobRepository.countByWorkerIdAndStatus(
                 worker.workerId, JobStatus.RUNNING);
@@ -140,6 +142,22 @@ public class WorkerService {
         int completedJobs = jobRepository.countByWorkerIdAndStatus(
                 worker.workerId, JobStatus.SUCCESS);
 
+//        return new WorkerStatusResponse(
+//                worker.workerId,
+//                worker.os,
+//                worker.cpuCores,
+//                worker.memoryMB,
+//                worker.hasGpu,
+//                online,
+//                worker.lastSeen,
+//                worker.totalEarned,
+//                activeJobs,
+//                completedJobs,
+//                worker.reputation,
+//                worker.cpuRatePerSecond,
+//                worker.gpuRatePerSecond,
+//                worker.walletBalance
+//        );
         return new WorkerStatusResponse(
                 worker.workerId,
                 worker.os,
@@ -147,13 +165,14 @@ public class WorkerService {
                 worker.memoryMB,
                 worker.hasGpu,
                 online,
-                worker.lastSeen,
+                effectiveLastSeen,
                 worker.totalEarned,
                 activeJobs,
                 completedJobs,
                 worker.reputation,
                 worker.cpuRatePerSecond,
-                worker.gpuRatePerSecond
+                worker.gpuRatePerSecond,
+                worker.walletBalance
         );
     }
 
