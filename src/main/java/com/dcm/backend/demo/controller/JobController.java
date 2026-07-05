@@ -4,9 +4,14 @@ import com.dcm.backend.demo.dto.entity.Job;
 import com.dcm.backend.demo.dto.request.JobCreateRequest;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.exception.RateLimitException;
+import com.dcm.backend.demo.exception.ResourceNotFoundException;
+import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.service.JobService;
 import com.dcm.backend.demo.service.RateLimitService;
+import com.dcm.backend.demo.service.WorkerService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -14,8 +19,12 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 @RestController
@@ -29,9 +38,11 @@ public class JobController {
     private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
     public JobController(JobService jobService,
-                         RateLimitService rateLimitService) {
+                         RateLimitService rateLimitService, WorkerService workerService, JobRepository jobRepository) {
         this.jobService = jobService;
         this.rateLimitService = rateLimitService;
+        this.workerService = workerService;
+        this.jobRepository = jobRepository;
     }
 
     @PostMapping("/jobs/create")
@@ -113,16 +124,6 @@ public class JobController {
         return ResponseEntity.ok(jobService.getJobLogs(jobId, userId));
     }
 
-//    @GetMapping("/jobs")
-//    public List<Job> getAllJobs() {
-//        return jobService.getAllJobs();
-//    }
-
-//    @GetMapping("/jobs/status/{status}")
-//    public List<Job> getJobsByStatus(@PathVariable JobStatus status) {
-//        return jobService.getJobsByStatus(status);
-//    }
-
     @PostMapping("/jobs/artifact")
     public String uploadArtifact(
             @RequestParam String jobId,
@@ -170,5 +171,24 @@ public class JobController {
 
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return jobService.getJobsByStatusForUser(userId, status, pageable);
+    }
+
+    @GetMapping("/jobs/{jobId}/artifact")
+    public ResponseEntity<Resource> downloadArtifact(@PathVariable String jobId) throws Exception {
+
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        Job job = jobService.getJobForArtifactDownload(jobId, userId);
+
+        Path file = Path.of("artifacts", job.jobId + ".zip");
+        if (!Files.exists(file)) {
+            throw new ResourceNotFoundException("Artifact file is missing on disk for job: " + jobId);
+        }
+
+        Resource resource = new FileSystemResource(file);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + jobId + "-output.zip\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
     }
 }
