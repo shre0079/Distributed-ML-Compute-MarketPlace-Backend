@@ -6,6 +6,8 @@ import com.dcm.backend.demo.enums.WithdrawalStatus;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.*;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,9 @@ public class AdminService {
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
     private final WithdrawalRepository withdrawalRepository;
+
+    private static final Logger log = LoggerFactory.getLogger(AdminService.class);
+
 
     public AdminService(JobRepository jobRepository,
                         WorkerRepository workerRepository,
@@ -85,7 +90,9 @@ public class AdminService {
             walletService.processFailureRefund(jobId);
         }
 
-        System.out.println("Admin force-failed job: " + jobId);
+        // forceFailJob
+        log.warn("Admin force-failed job: {}", jobId);
+
         return job;
     }
 
@@ -105,15 +112,15 @@ public class AdminService {
             job.status = JobStatus.CREATED;
             job.workerId = null;
             jobRepository.save(job);
-            System.out.println("Requeued job " + job.jobId +
-                    " from banned worker " + workerId);
+            // banWorker
+            log.warn("Requeued job {} from banned worker {}", job.jobId, workerId);
         }
 
         // Set lastSeen to 0 so worker appears permanently offline
         worker.lastSeen = 0;
         workerRepository.save(worker);
 
-        System.out.println("Admin banned worker: " + workerId);
+        log.warn("Admin banned worker: {}", workerId);
         return worker;
     }
 
