@@ -3,8 +3,10 @@ package com.dcm.backend.demo.controller;
 
 import com.dcm.backend.demo.exception.RateLimitException;
 import com.dcm.backend.demo.service.RateLimitService;
+import com.dcm.backend.demo.service.TokenRevocationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +17,7 @@ import com.dcm.backend.demo.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+
 //register, login
 @RestController
 public class AuthController {
@@ -22,9 +25,10 @@ public class AuthController {
     private final AuthService authService;
     private final RateLimitService rateLimitService;
 
-    public AuthController(AuthService authService, RateLimitService rateLimitService) {
+    public AuthController(AuthService authService, RateLimitService rateLimitService, TokenRevocationService tokenRevocationService) {
         this.authService = authService;
         this.rateLimitService = rateLimitService;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @PostMapping("/user/register")
@@ -63,5 +67,21 @@ public class AuthController {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+
+    // Add to constructor
+    private final TokenRevocationService tokenRevocationService;
+
+
+    @PostMapping("/user/logout")
+    public ResponseEntity<String> logout() {
+
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        tokenRevocationService.revoke(userId);
+
+        return ResponseEntity.ok("Logged out");
     }
 }
