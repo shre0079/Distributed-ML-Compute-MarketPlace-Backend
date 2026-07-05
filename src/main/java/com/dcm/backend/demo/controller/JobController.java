@@ -7,6 +7,10 @@ import com.dcm.backend.demo.exception.RateLimitException;
 import com.dcm.backend.demo.service.JobService;
 import com.dcm.backend.demo.service.RateLimitService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -139,20 +143,19 @@ public class JobController {
     }
 
     @GetMapping("/jobs")
-    public List<Job> getAllJobs() {
+    public Page<Job> getAllJobs(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        String userId = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
-
-        return jobService.getAllJobsForUser(userId);
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return jobService.getAllJobsForUser(userId, pageable);
     }
 
     @GetMapping("/jobs/status/{status}")
-    public List<Job> getJobsByStatus(@PathVariable JobStatus status) {
+    public Page<Job> getJobsByStatus(
+            @PathVariable JobStatus status,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        String userId = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
-
-        return jobService.getJobsByStatusForUser(userId, status);
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return jobService.getJobsByStatusForUser(userId, status, pageable);
     }
 }
