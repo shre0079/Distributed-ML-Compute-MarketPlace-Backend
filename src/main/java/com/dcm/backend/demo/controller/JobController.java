@@ -23,6 +23,10 @@ public class JobController {
 
     private final JobService jobService;
     private final RateLimitService rateLimitService;
+    private final WorkerService workerService;
+    private final JobRepository jobRepository;
+
+    private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
     public JobController(JobService jobService,
                          RateLimitService rateLimitService) {
