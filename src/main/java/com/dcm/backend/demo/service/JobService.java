@@ -312,4 +312,20 @@ public class JobService {
     public Page<Job> getJobsByStatusForUser(String userId, JobStatus status, Pageable pageable) {
         return jobRepository.findAllByUserIdAndStatus(userId, status, pageable);
     }
+
+    public Job getJobForArtifactDownload(String jobId, String userId) {
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        if (!job.userId.equals(userId)) {
+            throw new UnauthorizedException("You don't have access to this job");
+        }
+
+        if (!job.hasArtifact) {
+            throw new ResourceNotFoundException("No artifact available for job: " + jobId);
+        }
+
+        return job;
+    }
 }
