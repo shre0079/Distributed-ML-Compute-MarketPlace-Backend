@@ -6,6 +6,8 @@ import com.dcm.backend.demo.exception.InsufficientBalanceException;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.*;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -13,6 +15,8 @@ import java.util.UUID;
 
 @Service
 public class WalletService {
+
+    private static final Logger log = LoggerFactory.getLogger(WalletService.class);
 
     private final UserRepository userRepo;
     private final JobRepository jobRepo;
@@ -43,8 +47,9 @@ public class WalletService {
         recordTransaction(user.userId, null, job.jobId,
                 "DEPOSIT_HOLD", job.estimatedCost.negate());
 
-        System.out.println("Pre-deducted $" + job.estimatedCost +
-                " from user " + user.userId + " for job " + job.jobId);
+        // holdJobEstimate
+        log.info("Pre-deducted ${} from user {} for job {}", job.estimatedCost, user.userId, job.jobId);
+
     }
 
     // Called at job SUCCESS — charge actual, refund difference
@@ -68,7 +73,7 @@ public class WalletService {
             user.walletBalance = user.walletBalance.add(refund);
             userRepo.save(user);
             recordTransaction(user.userId, null, jobId, "REFUND", refund);
-            System.out.println("Refunded $" + refund + " to user " + user.userId);
+            log.info("Refunded ${} to user {}", refund, user.userId);
         }
 
         // Pay worker based on actual cost
@@ -82,10 +87,9 @@ public class WalletService {
         recordTransaction(null, worker.workerId, jobId,
                 "WORKER_PAYOUT", job.workerReward);
 
-        System.out.println("Payment processed for job " + jobId +
-                " | actual=$" + job.cost +
-                " | workerEarned=$" + job.workerReward +
-                " | refund=$" + refund);
+        // processJobPayment — final summary
+        log.info("Payment processed for job {} | actual=${} | workerEarned=${} | refund=${}",
+                jobId, job.cost, job.workerReward, refund);
     }
 
     // Called at job TIMEOUT — charge full estimate, pay worker full
@@ -120,8 +124,7 @@ public class WalletService {
         recordTransaction(null, worker.workerId, jobId,
                 "WORKER_PAYOUT", job.workerReward);
 
-        System.out.println("Timeout payment processed for job " + jobId +
-                " | charged=$" + job.cost);
+        log.info("Timeout payment processed for job {} | charged=${}", jobId, job.cost);
     }
 
     // Called at job FAILED — full refund to user
@@ -141,8 +144,8 @@ public class WalletService {
         recordTransaction(user.userId, null, jobId,
                 "REFUND", job.estimatedCost);
 
-        System.out.println("Full refund of $" + job.estimatedCost +
-                " to user " + user.userId + " for failed job " + jobId);
+        log.info("Full refund of ${} to user {} for failed job {}", job.estimatedCost, user.userId, jobId);
+
     }
 
     // Called at deposit — record transaction
@@ -170,9 +173,7 @@ public class WalletService {
         recordTransaction(user.userId, null, jobId,
                 "REFUND", job.estimatedCost);
 
-        System.out.println("Job " + jobId + " cancelled" +
-                " | refunded=$" + job.estimatedCost +
-                " to user " + user.userId);
+        log.info("Job {} cancelled | refunded=${} to user {}", jobId, job.estimatedCost, user.userId);
     }
 
     private void recordTransaction(String userId, String workerId,
@@ -213,8 +214,7 @@ public class WalletService {
         recordTransaction(null, workerId, null,
                 "WITHDRAWAL_HOLD", amount.negate());
 
-        System.out.println("Withdrawal requested: worker=" + workerId +
-                " amount=$" + amount);
+        log.info("Withdrawal requested: worker={} amount=${}", workerId, amount);
 
         return withdrawal;
     }
@@ -239,9 +239,7 @@ public class WalletService {
         recordTransaction(null, withdrawal.workerId, null,
                 "WITHDRAWAL_APPROVED", withdrawal.amount.negate());
 
-        System.out.println("Withdrawal approved: " + withdrawalId +
-                " | worker=" + withdrawal.workerId +
-                " | amount=$" + withdrawal.amount);
+        log.info("Withdrawal approved: {} | worker={} | amount=${}", withdrawalId, withdrawal.workerId, withdrawal.amount);
 
         return withdrawal;
     }
@@ -275,8 +273,8 @@ public class WalletService {
         recordTransaction(null, withdrawal.workerId, null,
                 "WITHDRAWAL_REJECTED", withdrawal.amount);
 
-        System.out.println("Withdrawal rejected: " + withdrawalId +
-                " | refunded=$" + withdrawal.amount);
+        // rejectWithdrawal
+        log.info("Withdrawal rejected: {} | refunded=${}", withdrawalId, withdrawal.amount);
 
         return withdrawal;
     }
