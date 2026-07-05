@@ -66,6 +66,8 @@ public class Job {
     @Column(precision = 12, scale = 8)
     public BigDecimal lockedRatePerSecond;  // rate frozen at job creation time
 
+    public boolean hasArtifact = false;
+
     @Column(nullable = false)
     public boolean networkRequired = false;
 
