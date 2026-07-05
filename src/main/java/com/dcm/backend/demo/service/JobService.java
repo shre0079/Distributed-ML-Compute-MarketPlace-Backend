@@ -12,6 +12,8 @@ import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -295,11 +297,11 @@ public class JobService {
         return job;
     }
 
-    public List<Job> getAllJobsForUser(String userId) {
-        return jobRepository.findAllByUserId(userId);
+    public Page<Job> getAllJobsForUser(String userId, Pageable pageable) {
+        return jobRepository.findAllByUserId(userId, pageable);
     }
 
-    public List<Job> getJobsByStatusForUser(String userId, JobStatus status) {
-        return jobRepository.findAllByUserIdAndStatus(userId, status);
+    public Page<Job> getJobsByStatusForUser(String userId, JobStatus status, Pageable pageable) {
+        return jobRepository.findAllByUserIdAndStatus(userId, status, pageable);
     }
 }
