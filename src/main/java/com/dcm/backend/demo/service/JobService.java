@@ -12,6 +12,8 @@ import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class JobService {
     private final WorkerRepository workerRepository;
     private final WalletService walletService;
     private final WorkerService workerService;
+    private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
     public JobService(JobRepository jobRepository,
                       UserRepository userRepository,
@@ -99,10 +102,9 @@ public class JobService {
         jobRepository.save(job);
         walletService.holdJobEstimate(job, user);
 
-        System.out.println("Created job " + jobId +
-                " | target=" + request.targetWorkerId +
-                " | lockedRate=$" + baseRate + "/s" +
-                " | estimate=$" + estimatedCost);
+        // createJob
+        log.info("Created job {} | target={} | lockedRate=${}/s | estimate=${}",
+                jobId, request.targetWorkerId, baseRate, estimatedCost);
 
         return job;
     }
@@ -165,7 +167,9 @@ public class JobService {
         Files.createDirectories(Path.of("results"));
         Files.writeString(Path.of("results", jobId + ".log"), logs);
 
-        System.out.println("Job " + jobId + " SUCCESS | actual=$" + job.cost);
+        // processResult
+        log.info("Job {} SUCCESS | actual=${}", jobId, job.cost);
+
     }
 
     @Transactional
@@ -181,8 +185,9 @@ public class JobService {
 
         if (job.retryCount < job.maxRetries) {
             job.status = JobStatus.CREATED;
-            System.out.println("Retrying job " + jobId +
-                    " attempt " + job.retryCount);
+            // processFailure — retry branch
+            log.info("Retrying job {} attempt {}", jobId, job.retryCount);
+
         } else {
             job.status = JobStatus.FAILED;
             walletService.processFailureRefund(jobId);
@@ -190,7 +195,9 @@ public class JobService {
             // ← new — penalize reputation on permanent failure
             workerService.onJobFailed(job.workerId);
 
-            System.out.println("Job " + jobId + " permanently FAILED — refunded");
+            // processFailure — terminal branch
+            log.warn("Job {} permanently FAILED — refunded", jobId);
+
         }
         jobRepository.save(job);
     }
@@ -218,7 +225,8 @@ public class JobService {
         // ← new — small penalty on timeout
         workerService.onJobTimeout(job.workerId);
 
-        System.out.println("Job " + jobId + " TIMEOUT");
+        // processTimeout
+        log.warn("Job {} TIMEOUT", jobId);
     }
 
     public Map<String, Object> getJobLogs(String jobId, String userId) {
