@@ -66,8 +66,11 @@ public class Job {
     @Column(precision = 12, scale = 8)
     public BigDecimal lockedRatePerSecond;  // rate frozen at job creation time
 
+    @Column(nullable = false)
+    public boolean networkRequired = false;
+
     public Job(String jobId, String dockerImage, String fileUrl,
-               String userId, int maxRuntimeSeconds) {
+               String userId, int maxRuntimeSeconds, boolean networkRequired) {
         this.jobId = jobId;
         this.dockerImage = dockerImage;
         this.fileUrl = fileUrl;
@@ -76,6 +79,7 @@ public class Job {
         this.status = JobStatus.CREATED;
         this.retryCount = 0;
         this.createdAt = System.currentTimeMillis();
+        this.networkRequired=networkRequired;
     }
 
     public Job() {}
