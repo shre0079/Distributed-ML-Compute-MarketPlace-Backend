@@ -43,41 +43,6 @@ public class JobService {
         this.workerService = workerService;
     }
 
-//    @Transactional
-//    public Job createJob(JobCreateRequest request, String userId) {
-//
-//        BigDecimal estimatedCost = BillingService.calculateEstimate(
-//                request.maxRuntimeSeconds, request.gpuRequired, request.priority);
-//
-//        User user = userRepository.findById(userId)
-//                .orElseThrow(() -> new ResourceNotFoundException(
-//                        "User not found: " + userId));
-//
-//        if (user.walletBalance.compareTo(estimatedCost) < 0) {
-//            throw new InsufficientBalanceException(
-//                    "Insufficient balance. Required: $" + estimatedCost
-//                            + " Available: $" + user.walletBalance);
-//        }
-//
-//        String jobId = UUID.randomUUID().toString();
-//        Job job = new Job(jobId, request.dockerImage,
-//                request.fileUrl, userId, request.maxRuntimeSeconds);
-//        job.requiredCpu = request.requiredCpu;
-//        job.requiredMemoryMB = request.requiredMemoryMB;
-//        job.gpuRequired = request.gpuRequired;
-//        job.estimatedCost = estimatedCost;
-//        job.priority = request.priority;
-//
-//        jobRepository.save(job);
-//        walletService.holdJobEstimate(job, user);
-//
-//        System.out.println("Created job " + jobId +
-//                " | estimate=$" + estimatedCost +
-//                " | maxRuntime=" + request.maxRuntimeSeconds + "s");
-//
-//        return job;
-//    }
-
     @Transactional
     public Job createJob(JobCreateRequest request, String userId) {
 
@@ -118,7 +83,7 @@ public class JobService {
 
         String jobId = UUID.randomUUID().toString();
         Job job = new Job(jobId, request.dockerImage, request.fileUrl,
-                userId, request.maxRuntimeSeconds);
+                userId, request.maxRuntimeSeconds, request.networkRequired);
         job.requiredCpu = request.requiredCpu;
         job.requiredMemoryMB = request.requiredMemoryMB;
         job.gpuRequired = request.gpuRequired;
@@ -127,6 +92,7 @@ public class JobService {
         job.targetWorkerId = request.targetWorkerId;
         job.lockedRatePerSecond = baseRate;
         job.expiresAt = System.currentTimeMillis() + (5 * 60 * 1000); // 5 min window
+        job.networkRequired = request.networkRequired;
 
         jobRepository.save(job);
         walletService.holdJobEstimate(job, user);
@@ -139,37 +105,6 @@ public class JobService {
         return job;
     }
 
-
-//    public synchronized Job pollJob(String workerId) {
-//
-//        WorkerInfo worker = workerRepository.findById(workerId).orElse(null);
-//        if (worker == null) return null;
-//
-//        List<Job> jobs = jobRepository.findAllByStatus(JobStatus.CREATED);
-//
-//        // Sort: highest priority first, then oldest createdAt first (FIFO within priority)
-//        jobs.sort((a, b) -> {
-//            int priorityCompare = Integer.compare(
-//                    b.priority.weight, a.priority.weight); // descending
-//            if (priorityCompare != 0) return priorityCompare;
-//            return Long.compare(a.createdAt, b.createdAt); // ascending (oldest first)
-//        });
-//
-//        for (Job job : jobs) {
-//            boolean compatible =
-//                    worker.cpuCores >= job.requiredCpu &&
-//                            worker.memoryMB >= job.requiredMemoryMB &&
-//                            (!job.gpuRequired || worker.hasGpu);
-//
-//            if (compatible) {
-//                job.status = JobStatus.RUNNING;
-//                job.workerId = workerId;
-//                jobRepository.save(job);
-//                return job;
-//            }
-//        }
-//        return null;
-//    }
 
     public synchronized Job pollJob(String workerId) {
 
