@@ -5,7 +5,11 @@ import com.dcm.backend.demo.dto.entity.WorkerInfo;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
+import com.dcm.backend.demo.service.AdminService;
+import com.dcm.backend.demo.service.WorkerService;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +22,8 @@ public class WorkerHealthScheduler {
 
     private final JobRepository jobRepository;
     private final WorkerRepository workerRepository;
+
+    private static final Logger log = LoggerFactory.getLogger(WorkerService.class);
 
     public WorkerHealthScheduler(JobRepository jobRepository, WorkerRepository workerRepository) {
         this.jobRepository = jobRepository;
@@ -34,18 +40,18 @@ public class WorkerHealthScheduler {
 
         for (WorkerInfo worker : allWorkers) {
             if (now - worker.lastSeen > 15000) {
-                System.out.println("Startup: worker " + worker.workerId + " was dead, requeuing jobs.");
+                log.info("Startup: worker {} was dead, requeuing jobs.", worker.workerId);
                 List<Job> stuckJobs = jobRepository.findAllByWorkerIdAndStatus(
                         worker.workerId, JobStatus.RUNNING);
                 for (Job job : stuckJobs) {
                     job.status = JobStatus.CREATED;
                     job.workerId = null;
                     jobRepository.save(job);
-                    System.out.println("Startup: requeued job " + job.jobId);
+                    log.info("Startup: requeued job {}", job.jobId);
                 }
             } else {
                 workerLastSeen.put(worker.workerId, worker.lastSeen);
-                System.out.println("Startup: re-seeded worker " + worker.workerId);
+                log.info("Startup: re-seeded worker {} into heartbeat map.", worker.workerId);
             }
         }
     }
@@ -73,20 +79,20 @@ public class WorkerHealthScheduler {
 
             if (now - worker.lastSeen > 15000) {
                 // Worker was dead before restart, reset their stuck jobs
-                System.out.println("Startup: worker " + worker.workerId + " was dead, requeuing jobs.");
+                log.info("Startup: worker {} was dead, requeuing jobs.", worker.workerId);
                 List<Job> stuckJobs = jobRepository.findAllByWorkerIdAndStatus(
                         worker.workerId, JobStatus.RUNNING);
                 for (Job job : stuckJobs) {
                     job.status = JobStatus.CREATED;
                     job.workerId = null;
                     jobRepository.save(job);
-                    System.out.println("Startup: requeued job " + job.jobId);
+                    log.info("Startup: requeued job {}", job.jobId);
                 }
 
             } else {
                 // Worker was recently alive before restart, re-seed the in-memory map
                 workerLastSeen.put(worker.workerId, worker.lastSeen);
-                System.out.println("Startup: re-seeded worker " + worker.workerId + " into heartbeat map.");
+                log.info("Startup: re-seeded worker {} into heartbeat map.", worker.workerId);
             }
         }
     }
