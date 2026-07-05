@@ -125,10 +125,19 @@ public class JobController {
             @RequestParam String workerSecret,
             @RequestBody byte[] body) throws Exception {
 
-        java.nio.file.Path dir = java.nio.file.Path.of("artifacts");
-        java.nio.file.Files.createDirectories(dir);
-        java.nio.file.Files.write(dir.resolve(jobId + ".zip"), body);
-        System.out.println("Saved artifact for job: " + jobId);
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        workerService.validateWorker(job.workerId, workerSecret);
+
+        Path dir = Path.of("artifacts");
+        Files.createDirectories(dir);
+        Files.write(dir.resolve(jobId + ".zip"), body);
+
+        job.hasArtifact = true;   // ← new
+        jobRepository.save(job);
+
+        log.info("Saved artifact for job: {}", jobId);
         return "ok";
     }
 
