@@ -21,12 +21,12 @@ public class TransactionController {
 
     // Full transaction history with summary
     @GetMapping("/transactions")
-    public ResponseEntity<Map<String, Object>> getTransactionHistory() {
-        String userId = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
+    public ResponseEntity<Map<String, Object>> getTransactionHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        return ResponseEntity.ok(
-                transactionService.getUserTransactionHistory(userId));
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(transactionService.getUserTransactionHistory(userId, page, size));
     }
 
     // Transactions for a specific job

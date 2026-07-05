@@ -12,6 +12,10 @@ import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -30,6 +34,7 @@ public class JobService {
     private final WorkerRepository workerRepository;
     private final WalletService walletService;
     private final WorkerService workerService;
+    private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
     public JobService(JobRepository jobRepository,
                       UserRepository userRepository,
@@ -42,41 +47,6 @@ public class JobService {
         this.walletService = walletService;
         this.workerService = workerService;
     }
-
-//    @Transactional
-//    public Job createJob(JobCreateRequest request, String userId) {
-//
-//        BigDecimal estimatedCost = BillingService.calculateEstimate(
-//                request.maxRuntimeSeconds, request.gpuRequired, request.priority);
-//
-//        User user = userRepository.findById(userId)
-//                .orElseThrow(() -> new ResourceNotFoundException(
-//                        "User not found: " + userId));
-//
-//        if (user.walletBalance.compareTo(estimatedCost) < 0) {
-//            throw new InsufficientBalanceException(
-//                    "Insufficient balance. Required: $" + estimatedCost
-//                            + " Available: $" + user.walletBalance);
-//        }
-//
-//        String jobId = UUID.randomUUID().toString();
-//        Job job = new Job(jobId, request.dockerImage,
-//                request.fileUrl, userId, request.maxRuntimeSeconds);
-//        job.requiredCpu = request.requiredCpu;
-//        job.requiredMemoryMB = request.requiredMemoryMB;
-//        job.gpuRequired = request.gpuRequired;
-//        job.estimatedCost = estimatedCost;
-//        job.priority = request.priority;
-//
-//        jobRepository.save(job);
-//        walletService.holdJobEstimate(job, user);
-//
-//        System.out.println("Created job " + jobId +
-//                " | estimate=$" + estimatedCost +
-//                " | maxRuntime=" + request.maxRuntimeSeconds + "s");
-//
-//        return job;
-//    }
 
     @Transactional
     public Job createJob(JobCreateRequest request, String userId) {
@@ -118,7 +88,7 @@ public class JobService {
 
         String jobId = UUID.randomUUID().toString();
         Job job = new Job(jobId, request.dockerImage, request.fileUrl,
-                userId, request.maxRuntimeSeconds);
+                userId, request.maxRuntimeSeconds, request.networkRequired);
         job.requiredCpu = request.requiredCpu;
         job.requiredMemoryMB = request.requiredMemoryMB;
         job.gpuRequired = request.gpuRequired;
@@ -127,49 +97,18 @@ public class JobService {
         job.targetWorkerId = request.targetWorkerId;
         job.lockedRatePerSecond = baseRate;
         job.expiresAt = System.currentTimeMillis() + (5 * 60 * 1000); // 5 min window
+        job.networkRequired = request.networkRequired;
 
         jobRepository.save(job);
         walletService.holdJobEstimate(job, user);
 
-        System.out.println("Created job " + jobId +
-                " | target=" + request.targetWorkerId +
-                " | lockedRate=$" + baseRate + "/s" +
-                " | estimate=$" + estimatedCost);
+        // createJob
+        log.info("Created job {} | target={} | lockedRate=${}/s | estimate=${}",
+                jobId, request.targetWorkerId, baseRate, estimatedCost);
 
         return job;
     }
 
-
-//    public synchronized Job pollJob(String workerId) {
-//
-//        WorkerInfo worker = workerRepository.findById(workerId).orElse(null);
-//        if (worker == null) return null;
-//
-//        List<Job> jobs = jobRepository.findAllByStatus(JobStatus.CREATED);
-//
-//        // Sort: highest priority first, then oldest createdAt first (FIFO within priority)
-//        jobs.sort((a, b) -> {
-//            int priorityCompare = Integer.compare(
-//                    b.priority.weight, a.priority.weight); // descending
-//            if (priorityCompare != 0) return priorityCompare;
-//            return Long.compare(a.createdAt, b.createdAt); // ascending (oldest first)
-//        });
-//
-//        for (Job job : jobs) {
-//            boolean compatible =
-//                    worker.cpuCores >= job.requiredCpu &&
-//                            worker.memoryMB >= job.requiredMemoryMB &&
-//                            (!job.gpuRequired || worker.hasGpu);
-//
-//            if (compatible) {
-//                job.status = JobStatus.RUNNING;
-//                job.workerId = workerId;
-//                jobRepository.save(job);
-//                return job;
-//            }
-//        }
-//        return null;
-//    }
 
     public synchronized Job pollJob(String workerId) {
 
@@ -228,7 +167,9 @@ public class JobService {
         Files.createDirectories(Path.of("results"));
         Files.writeString(Path.of("results", jobId + ".log"), logs);
 
-        System.out.println("Job " + jobId + " SUCCESS | actual=$" + job.cost);
+        // processResult
+        log.info("Job {} SUCCESS | actual=${}", jobId, job.cost);
+
     }
 
     @Transactional
@@ -244,8 +185,9 @@ public class JobService {
 
         if (job.retryCount < job.maxRetries) {
             job.status = JobStatus.CREATED;
-            System.out.println("Retrying job " + jobId +
-                    " attempt " + job.retryCount);
+            // processFailure — retry branch
+            log.info("Retrying job {} attempt {}", jobId, job.retryCount);
+
         } else {
             job.status = JobStatus.FAILED;
             walletService.processFailureRefund(jobId);
@@ -253,7 +195,9 @@ public class JobService {
             // ← new — penalize reputation on permanent failure
             workerService.onJobFailed(job.workerId);
 
-            System.out.println("Job " + jobId + " permanently FAILED — refunded");
+            // processFailure — terminal branch
+            log.warn("Job {} permanently FAILED — refunded", jobId);
+
         }
         jobRepository.save(job);
     }
@@ -281,7 +225,8 @@ public class JobService {
         // ← new — small penalty on timeout
         workerService.onJobTimeout(job.workerId);
 
-        System.out.println("Job " + jobId + " TIMEOUT");
+        // processTimeout
+        log.warn("Job {} TIMEOUT", jobId);
     }
 
     public Map<String, Object> getJobLogs(String jobId, String userId) {
@@ -360,11 +305,27 @@ public class JobService {
         return job;
     }
 
-    public List<Job> getAllJobsForUser(String userId) {
-        return jobRepository.findAllByUserId(userId);
+    public Page<Job> getAllJobsForUser(String userId, Pageable pageable) {
+        return jobRepository.findAllByUserId(userId, pageable);
     }
 
-    public List<Job> getJobsByStatusForUser(String userId, JobStatus status) {
-        return jobRepository.findAllByUserIdAndStatus(userId, status);
+    public Page<Job> getJobsByStatusForUser(String userId, JobStatus status, Pageable pageable) {
+        return jobRepository.findAllByUserIdAndStatus(userId, status, pageable);
+    }
+
+    public Job getJobForArtifactDownload(String jobId, String userId) {
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        if (!job.userId.equals(userId)) {
+            throw new UnauthorizedException("You don't have access to this job");
+        }
+
+        if (!job.hasArtifact) {
+            throw new ResourceNotFoundException("No artifact available for job: " + jobId);
+        }
+
+        return job;
     }
 }

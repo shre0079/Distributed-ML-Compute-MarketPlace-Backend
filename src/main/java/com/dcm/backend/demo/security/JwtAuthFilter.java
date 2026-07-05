@@ -1,5 +1,6 @@
 package com.dcm.backend.demo.security;
 
+import com.dcm.backend.demo.service.TokenRevocationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,9 +18,11 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final TokenRevocationService tokenRevocationService;
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(JwtUtil jwtUtil, TokenRevocationService tokenRevocationService) {
         this.jwtUtil = jwtUtil;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Override
@@ -37,29 +40,25 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (jwtUtil.validateToken(token)) {
 
                 String userId = jwtUtil.getUserIdFromToken(token);
-                String role = jwtUtil.getRoleFromToken(token);
-//                System.out.println("JWT role extracted: " + role);
-//                System.out.println("Authorities set: ROLE_" + role);
+                long issuedAt = jwtUtil.getIssuedAtMillis(token);
 
-                // Set role as granted authority
-                List<SimpleGrantedAuthority> authorities = List.of(
-                        new SimpleGrantedAuthority("ROLE_" + role)
-                );
+                // Reject tokens issued before the user's last logout —
+                // even though the signature is valid, it's a revoked session.
+                if (!tokenRevocationService.isRevoked(userId, issuedAt)) {
 
-                // Set authenticated user in security context
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userId,
-                                null,
-                                authorities
-                        );
+                    String role = jwtUtil.getRoleFromToken(token);
+                    List<SimpleGrantedAuthority> authorities = List.of(
+                            new SimpleGrantedAuthority("ROLE_" + role)
+                    );
 
-//                System.out.println("Authentication set: " + authentication.getAuthorities());
-//                System.out.println("Is authenticated: " + authentication.isAuthenticated());
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userId, null, authorities);
 
-
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+                // If revoked, authentication is simply never set — the
+                // request proceeds unauthenticated and protected routes
+                // will correctly reject it downstream.
             }
         }
 

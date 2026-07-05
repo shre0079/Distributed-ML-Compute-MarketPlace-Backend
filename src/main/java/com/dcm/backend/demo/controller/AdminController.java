@@ -3,6 +3,10 @@ package com.dcm.backend.demo.controller;
 import com.dcm.backend.demo.dto.entity.*;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.service.AdminService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,48 +23,33 @@ public class AdminController {
         this.adminService = adminService;
     }
 
-    // All jobs
     @GetMapping("/jobs")
-    public ResponseEntity<List<Job>> getAllJobs() {
-        return ResponseEntity.ok(adminService.getAllJobs());
+    public Page<Job> getAllJobs(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return adminService.getAllJobs(pageable);
     }
 
-    // Jobs by status
     @GetMapping("/jobs/status/{status}")
-    public ResponseEntity<List<Job>> getJobsByStatus(
-            @PathVariable JobStatus status) {
-        return ResponseEntity.ok(adminService.getJobsByStatus(status));
+    public Page<Job> getJobsByStatus(
+            @PathVariable JobStatus status,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return adminService.getJobsByStatus(status, pageable);
     }
 
-    // Force fail a job
-    @PostMapping("/jobs/{jobId}/force-fail")
-    public ResponseEntity<Job> forceFailJob(@PathVariable String jobId) {
-        return ResponseEntity.ok(adminService.forceFailJob(jobId));
-    }
-
-    // All workers
     @GetMapping("/workers")
-    public ResponseEntity<List<WorkerInfo>> getAllWorkers() {
-        return ResponseEntity.ok(adminService.getAllWorkers());
+    public Page<WorkerInfo> getAllWorkers(@PageableDefault(size = 20) Pageable pageable) {
+        return adminService.getAllWorkers(pageable);
     }
 
-    // Ban a worker
-    @PostMapping("/workers/{workerId}/ban")
-    public ResponseEntity<WorkerInfo> banWorker(
-            @PathVariable String workerId) {
-        return ResponseEntity.ok(adminService.banWorker(workerId));
-    }
-
-    // All users
     @GetMapping("/users")
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(adminService.getAllUsers());
+    public Page<User> getAllUsers(@PageableDefault(size = 20) Pageable pageable) {
+        return adminService.getAllUsers(pageable);
     }
 
-    // Full transaction audit trail
     @GetMapping("/transactions")
-    public ResponseEntity<List<Transaction>> getAllTransactions() {
-        return ResponseEntity.ok(adminService.getAllTransactions());
+    public Page<Transaction> getAllTransactions(
+            @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC) Pageable pageable) {
+        return adminService.getAllTransactions(pageable);
     }
 
     // Platform stats

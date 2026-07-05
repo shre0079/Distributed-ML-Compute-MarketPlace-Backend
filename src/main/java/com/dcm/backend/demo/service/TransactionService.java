@@ -24,30 +24,40 @@ public class TransactionService {
         this.userRepository = userRepository;
     }
 
-    public Map<String, Object> getUserTransactionHistory(String userId) {
+    public Map<String, Object> getUserTransactionHistory(String userId, int page, int size) {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
-        List<Transaction> transactions = transactionRepository
+        // Summary must reflect the user's ENTIRE history, not just one page —
+        // so we still pull the full list here. At current transaction volumes
+        // this is fine; if this ever becomes a bottleneck at scale, the fix is
+        // a dedicated SUM() aggregate query for summary stats plus a genuinely
+        // paginated DB query for the display list, instead of doing both from
+        // one in-memory list as we do here.
+        List<Transaction> allTransactions = transactionRepository
                 .findAllByUserIdOrderByTimestampDesc(userId);
 
-        // Calculate summary
-        BigDecimal totalDeposited = transactions.stream()
+        BigDecimal totalDeposited = allTransactions.stream()
                 .filter(t -> t.type.equals("DEPOSIT"))
                 .map(t -> t.amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalSpent = transactions.stream()
+        BigDecimal totalSpent = allTransactions.stream()
                 .filter(t -> t.type.equals("JOB_COST"))
                 .map(t -> t.amount.abs())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalRefunded = transactions.stream()
+        BigDecimal totalRefunded = allTransactions.stream()
                 .filter(t -> t.type.equals("REFUND"))
                 .map(t -> t.amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int totalElements = allTransactions.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int fromIndex = Math.min(page * size, totalElements);
+        int toIndex = Math.min(fromIndex + size, totalElements);
+        List<Transaction> pageContent = allTransactions.subList(fromIndex, toIndex);
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("userId", userId);
@@ -57,11 +67,13 @@ public class TransactionService {
                 "totalDeposited", totalDeposited,
                 "totalSpent", totalSpent,
                 "totalRefunded", totalRefunded,
-                "transactionCount", transactions.size()
+                "transactionCount", totalElements
         ));
-        response.put("transactions", transactions.stream()
-                .map(this::formatTransaction)
-                .toList());
+        response.put("transactions", pageContent.stream().map(this::formatTransaction).toList());
+        response.put("page", page);
+        response.put("size", size);
+        response.put("totalElements", totalElements);
+        response.put("totalPages", totalPages);
 
         return response;
     }

@@ -32,4 +32,6 @@ public class JobCreateRequest {
     public String targetWorkerId;
 
     public Priority priority = Priority.NORMAL;
+
+    public boolean networkRequired = false; // opt-in, defaults to fully isolated
 }

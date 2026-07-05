@@ -11,6 +11,8 @@ import com.dcm.backend.demo.exception.UnauthorizedException;
 import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
 import com.dcm.backend.demo.scheduler.WorkerHealthScheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +32,9 @@ public class WorkerService {
     private final PasswordEncoder passwordEncoder;
     private final WorkerHealthScheduler workerHealthScheduler;
     private final JobRepository jobRepository;
+
+    private static final Logger log = LoggerFactory.getLogger(WorkerService.class);
+
 
     public WorkerService(WorkerRepository workerRepository,
                          PasswordEncoder passwordEncoder,
@@ -77,11 +82,10 @@ public class WorkerService {
         workerRepository.save(worker);
         workerHealthScheduler.workerRegistered(worker.workerId, worker.lastSeen);
 
-        System.out.println("Worker registered: " + worker.workerId +
-                " | CPU: " + worker.cpuCores +
-                " | RAM: " + worker.memoryMB +
-                " | OS: " + worker.os +
-                " | GPU: " + worker.hasGpu);
+        // register
+        log.info("Worker registered: {} | CPU: {} | RAM: {} | GPU: {} | cpuRate=${}/s | gpuRate=${}/s",
+                worker.workerId, worker.cpuCores, worker.memoryMB, worker.hasGpu,
+                worker.cpuRatePerSecond, worker.gpuRatePerSecond);
 
         return "ok";
     }
@@ -102,7 +106,9 @@ public class WorkerService {
         validateWorker(workerId, workerSecret);
         workerHealthScheduler.workerHeartbeat(workerId);
 
-        System.out.println("Heartbeat from " + workerId + " status=" + status);
+        // heartbeat
+        log.debug("Heartbeat from {} status={}", workerId, status); // debug, not info — this fires constantly
+
     }
 
     public List<WorkerStatusResponse> getAllWorkerStatuses() {
@@ -230,8 +236,9 @@ public class WorkerService {
         worker.gpuRatePerSecond = gpuRate;
         workerRepository.save(worker);
 
-        System.out.println("Worker " + workerId + " updated rates: cpu=$" +
-                cpuRate + "/s gpu=$" + gpuRate + "/s");
+        // updateRates
+        log.info("Worker {} updated rates: cpu=${}/s gpu=${}/s", workerId, cpuRate, gpuRate);
+
 
         return worker;
     }

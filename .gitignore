@@ -36,3 +36,5 @@ results
 storage/datasets
 
 results
+
+src/main/resources/application.properties
