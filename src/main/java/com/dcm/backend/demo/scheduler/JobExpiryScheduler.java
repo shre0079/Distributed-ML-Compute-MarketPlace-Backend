@@ -3,7 +3,11 @@ package com.dcm.backend.demo.scheduler;
 import com.dcm.backend.demo.dto.entity.Job;
 import com.dcm.backend.demo.enums.JobStatus;
 import com.dcm.backend.demo.repository.JobRepository;
+import com.dcm.backend.demo.service.AdminService;
+import com.dcm.backend.demo.service.JobService;
 import com.dcm.backend.demo.service.WalletService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +18,8 @@ public class JobExpiryScheduler {
 
     private final JobRepository jobRepository;
     private final WalletService walletService;
+
+    private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
     public JobExpiryScheduler(JobRepository jobRepository, WalletService walletService) {
         this.jobRepository = jobRepository;
@@ -33,8 +39,9 @@ public class JobExpiryScheduler {
 
                 walletService.processJobExpiry(job.jobId);
 
-                System.out.println("Job " + job.jobId + " EXPIRED — target worker "
-                        + job.targetWorkerId + " never picked it up");
+                // JobExpiryScheduler
+                log.warn("Job {} EXPIRED — target worker {} never picked it up", job.jobId, job.targetWorkerId);
+
             }
         }
     }
