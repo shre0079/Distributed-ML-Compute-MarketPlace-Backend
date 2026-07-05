@@ -6,6 +6,8 @@ import com.dcm.backend.demo.enums.WithdrawalStatus;
 import com.dcm.backend.demo.exception.ResourceNotFoundException;
 import com.dcm.backend.demo.repository.*;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -36,29 +38,24 @@ public class AdminService {
         this.withdrawalRepository = withdrawalRepository;
     }
 
-    // All jobs across all users
-    public List<Job> getAllJobs() {
-        return jobRepository.findAll();
+    public Page<Job> getAllJobs(Pageable pageable) {
+        return jobRepository.findAll(pageable);
     }
 
-    // Jobs filtered by status
-    public List<Job> getJobsByStatus(JobStatus status) {
-        return jobRepository.findAllByStatus(status);
+    public Page<Job> getJobsByStatus(JobStatus status, Pageable pageable) {
+        return jobRepository.findAllByStatus(status, pageable);
     }
 
-    // All workers with full details
-    public List<WorkerInfo> getAllWorkers() {
-        return workerRepository.findAll();
+    public Page<WorkerInfo> getAllWorkers(Pageable pageable) {
+        return workerRepository.findAll(pageable);
     }
 
-    // All users
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public Page<User> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable);
     }
 
-    // Full transaction audit trail
-    public List<Transaction> getAllTransactions() {
-        return transactionRepository.findAll();
+    public Page<Transaction> getAllTransactions(Pageable pageable) {
+        return transactionRepository.findAll(pageable);
     }
 
     // Force fail a stuck job
