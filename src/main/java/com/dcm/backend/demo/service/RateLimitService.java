@@ -64,6 +64,6 @@ public class RateLimitService {
 
     // 10 uploads per minute per user
     public Bucket resolveFileUploadBucket(String userId) {
-        return fileUploadBuckets.computeIfAbsent(userId, k -> newBucket(10, Duration.ofMinutes(1)));
+        return fileUploadBuckets.computeIfAbsent(userId, k -> newBucket(2, Duration.ofMinutes(1)));
     }
 }
