@@ -191,4 +191,12 @@ public class JobController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }
+
+    @PostMapping("/jobs/{jobId}/logs/append")
+    public String appendLogs(@PathVariable String jobId,
+                             @RequestParam String workerSecret,
+                             @RequestBody String chunk) {
+        jobService.appendLiveLogs(jobId, workerSecret, chunk);
+        return "ok";
+    }
 }
