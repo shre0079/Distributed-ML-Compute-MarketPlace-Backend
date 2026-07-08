@@ -11,6 +11,7 @@ import com.dcm.backend.demo.exception.UnauthorizedException;
 import com.dcm.backend.demo.repository.JobRepository;
 import com.dcm.backend.demo.repository.UserRepository;
 import com.dcm.backend.demo.repository.WorkerRepository;
+import com.dcm.backend.demo.webSocket.JobLogWebSocketHandler;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,18 +35,20 @@ public class JobService {
     private final WorkerRepository workerRepository;
     private final WalletService walletService;
     private final WorkerService workerService;
+    private final JobLogWebSocketHandler jobLogWebSocketHandler;
     private static final Logger log = LoggerFactory.getLogger(JobService.class);
 
     public JobService(JobRepository jobRepository,
                       UserRepository userRepository,
                       WorkerRepository workerRepository,
                       WalletService walletService,
-                      WorkerService workerService) {
+                      WorkerService workerService, JobLogWebSocketHandler jobLogWebSocketHandler) {
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
         this.workerRepository = workerRepository;
         this.walletService = walletService;
         this.workerService = workerService;
+        this.jobLogWebSocketHandler = jobLogWebSocketHandler;
     }
 
     @Transactional
@@ -132,6 +135,7 @@ public class JobService {
             if (compatible) {
                 job.status = JobStatus.RUNNING;
                 job.workerId = workerId;
+                job.runningStartedAt = System.currentTimeMillis();
                 jobRepository.save(job);
                 return job;
             }
@@ -148,6 +152,8 @@ public class JobService {
                         "Job not found: " + jobId));
 
         workerService.validateWorker(job.workerId, workerSecret);
+        validateReportedRuntime(job, runtimeMs);
+
 
         if (job.status == JobStatus.SUCCESS) return;
 
@@ -211,6 +217,7 @@ public class JobService {
                         "Job not found: " + jobId));
 
         workerService.validateWorker(job.workerId, workerSecret);
+        validateReportedRuntime(job, runtimeMs);
 
         if (job.status == JobStatus.TIMEOUT) return;
 
@@ -327,5 +334,28 @@ public class JobService {
         }
 
         return job;
+    }
+
+    private void validateReportedRuntime(Job job, long runtimeMs) {
+
+        long now = System.currentTimeMillis();
+        long serverElapsedMs = now - job.runningStartedAt;
+        long maxAllowedMs = (long) job.maxRuntimeSeconds * 1000;
+        long buffer = 5000; // grace for clock skew + network delivery delay
+
+        // Billing is calculated directly from runtimeMs — this is the one
+        // check that actually protects against a worker inflating their
+        // reported runtime to extract a bigger payout than they earned.
+        if (runtimeMs > serverElapsedMs + buffer || runtimeMs > maxAllowedMs + buffer) {
+            throw new IllegalArgumentException(
+                    "Reported runtime is not plausible for this job.");
+        }
+    }
+
+    public void appendLiveLogs(String jobId, String workerSecret, String chunk) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+        workerService.validateWorker(job.workerId, workerSecret);
+        jobLogWebSocketHandler.broadcast(jobId, chunk);
     }
 }

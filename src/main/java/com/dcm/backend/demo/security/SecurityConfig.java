@@ -2,6 +2,7 @@ package com.dcm.backend.demo.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,12 +31,14 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
 
+                        // Public GET access for downloading files
+                        .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
+
                         // Public endpoints — no token required
                         .requestMatchers(
                                 "/ping",
                                 "/user/register",
                                 "/user/login",
-                                "/files/**",
                                 "/register",
                                 "/workers",
                                 "/workers/**",
@@ -43,11 +46,13 @@ public class SecurityConfig {
                                 "/jobs/poll/**",
                                 "/jobs/result",
                                 "/jobs/fail",
+                                "/jobs/timeout",
                                 "/jobs/artifact",
+                                "/jobs/*/logs/append",
                                 "/workers/withdraw",
                                 "/workers/*/withdrawals",
                                 "/workers/rate",
-                                "/jobs/timeout"
+                                "/ws/**"
                         ).permitAll()
 
                         .requestMatchers("/admin/**").hasRole("ADMIN")

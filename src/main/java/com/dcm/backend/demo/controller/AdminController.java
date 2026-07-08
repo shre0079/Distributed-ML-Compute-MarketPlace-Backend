@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -64,18 +65,50 @@ public class AdminController {
                 adminService.getPendingWithdrawals());
     }
 
+//    @PostMapping("/withdrawals/{withdrawalId}/approve")
+//    public ResponseEntity<WithdrawalRequest> approveWithdrawal(
+//            @PathVariable String withdrawalId) {
+//        return ResponseEntity.ok(
+//                adminService.approveWithdrawal(withdrawalId));
+//    }
+//
+//    @PostMapping("/withdrawals/{withdrawalId}/reject")
+//    public ResponseEntity<WithdrawalRequest> rejectWithdrawal(
+//            @PathVariable String withdrawalId,
+//            @RequestParam(required = false) String reason) {
+//        return ResponseEntity.ok(
+//                adminService.rejectWithdrawal(withdrawalId, reason));
+//    }
+
+    @PostMapping("/jobs/{jobId}/force-fail")
+    public ResponseEntity<Job> forceFailJob(@PathVariable String jobId) {
+        String adminUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(adminService.forceFailJob(jobId, adminUserId));
+    }
+
+    @PostMapping("/workers/{workerId}/ban")
+    public ResponseEntity<WorkerInfo> banWorker(@PathVariable String workerId) {
+        String adminUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(adminService.banWorker(workerId, adminUserId));
+    }
+
     @PostMapping("/withdrawals/{withdrawalId}/approve")
-    public ResponseEntity<WithdrawalRequest> approveWithdrawal(
-            @PathVariable String withdrawalId) {
-        return ResponseEntity.ok(
-                adminService.approveWithdrawal(withdrawalId));
+    public ResponseEntity<WithdrawalRequest> approveWithdrawal(@PathVariable String withdrawalId) {
+        String adminUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(adminService.approveWithdrawal(withdrawalId, adminUserId));
     }
 
     @PostMapping("/withdrawals/{withdrawalId}/reject")
     public ResponseEntity<WithdrawalRequest> rejectWithdrawal(
             @PathVariable String withdrawalId,
             @RequestParam(required = false) String reason) {
-        return ResponseEntity.ok(
-                adminService.rejectWithdrawal(withdrawalId, reason));
+        String adminUserId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(adminService.rejectWithdrawal(withdrawalId, reason, adminUserId));
+    }
+
+    @GetMapping("/audit-log")
+    public Page<AdminAuditLog> getAuditLog(
+            @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC) Pageable pageable) {
+        return adminService.getAuditLog(pageable);
     }
 }

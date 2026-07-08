@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AdminService {
@@ -26,6 +27,7 @@ public class AdminService {
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
     private final WithdrawalRepository withdrawalRepository;
+    private final AdminAuditLogRepository auditLogRepository;
 
     private static final Logger log = LoggerFactory.getLogger(AdminService.class);
 
@@ -34,13 +36,25 @@ public class AdminService {
                         WorkerRepository workerRepository,
                         UserRepository userRepository,
                         TransactionRepository transactionRepository,
-                        WalletService walletService, WithdrawalRepository withdrawalRepository) {
+                        WalletService walletService, WithdrawalRepository withdrawalRepository, AdminAuditLogRepository adminAuditLogRepository) {
         this.jobRepository = jobRepository;
         this.workerRepository = workerRepository;
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
         this.walletService = walletService;
         this.withdrawalRepository = withdrawalRepository;
+        this.auditLogRepository = adminAuditLogRepository;
+    }
+
+    private void recordAudit(String adminUserId, String action, String targetId, String details) {
+        AdminAuditLog log = new AdminAuditLog();
+        log.auditId = UUID.randomUUID().toString();
+        log.adminUserId = adminUserId;
+        log.action = action;
+        log.targetId = targetId;
+        log.details = details;
+        log.timestamp = System.currentTimeMillis();
+        auditLogRepository.save(log);
     }
 
     public Page<Job> getAllJobs(Pageable pageable) {
@@ -65,7 +79,7 @@ public class AdminService {
 
     // Force fail a stuck job
     @Transactional
-    public Job forceFailJob(String jobId) {
+    public Job forceFailJob(String jobId, String adminUserId) {
 
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -93,12 +107,14 @@ public class AdminService {
         // forceFailJob
         log.warn("Admin force-failed job: {}", jobId);
 
+        recordAudit(adminUserId, "FORCE_FAIL_JOB", jobId, null);
+
         return job;
     }
 
     // Ban a worker — marks them inactive
     @Transactional
-    public WorkerInfo banWorker(String workerId) {
+    public WorkerInfo banWorker(String workerId, String adminUserId) {
 
         WorkerInfo worker = workerRepository.findById(workerId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -121,6 +137,8 @@ public class AdminService {
         workerRepository.save(worker);
 
         log.warn("Admin banned worker: {}", workerId);
+
+        recordAudit(adminUserId, "BAN_WORKER", workerId, null);
         return worker;
     }
 
@@ -182,11 +200,27 @@ public class AdminService {
         return withdrawalRepository.findAllByStatus(WithdrawalStatus.PENDING);
     }
 
-    public WithdrawalRequest approveWithdrawal(String withdrawalId) {
-        return walletService.approveWithdrawal(withdrawalId);
+//    public WithdrawalRequest approveWithdrawal(String withdrawalId) {
+//        return walletService.approveWithdrawal(withdrawalId);
+//    }
+//
+//    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason) {
+//        return walletService.rejectWithdrawal(withdrawalId, reason);
+//    }
+
+    public WithdrawalRequest approveWithdrawal(String withdrawalId, String adminUserId) {
+        WithdrawalRequest w = walletService.approveWithdrawal(withdrawalId);
+        recordAudit(adminUserId, "APPROVE_WITHDRAWAL", withdrawalId, null);
+        return w;
     }
 
-    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason) {
-        return walletService.rejectWithdrawal(withdrawalId, reason);
+    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason, String adminUserId) {
+        WithdrawalRequest w = walletService.rejectWithdrawal(withdrawalId, reason);
+        recordAudit(adminUserId, "REJECT_WITHDRAWAL", withdrawalId, reason);
+        return w;
+    }
+
+    public Page<AdminAuditLog> getAuditLog(Pageable pageable) {
+        return auditLogRepository.findAll(pageable);
     }
 }
