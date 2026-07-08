@@ -193,8 +193,18 @@ public class AdminService {
         return withdrawalRepository.findAllByStatus(WithdrawalStatus.PENDING);
     }
 
-    public WithdrawalRequest approveWithdrawal(String withdrawalId) {
-        return walletService.approveWithdrawal(withdrawalId);
+//    public WithdrawalRequest approveWithdrawal(String withdrawalId) {
+//        return walletService.approveWithdrawal(withdrawalId);
+//    }
+//
+//    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason) {
+//        return walletService.rejectWithdrawal(withdrawalId, reason);
+//    }
+
+    public WithdrawalRequest approveWithdrawal(String withdrawalId, String adminUserId) {
+        WithdrawalRequest w = walletService.approveWithdrawal(withdrawalId);
+        recordAudit(adminUserId, "APPROVE_WITHDRAWAL", withdrawalId, null);
+        return w;
     }
 
     public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason) {
