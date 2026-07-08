@@ -132,6 +132,7 @@ public class JobService {
             if (compatible) {
                 job.status = JobStatus.RUNNING;
                 job.workerId = workerId;
+                job.runningStartedAt = System.currentTimeMillis();
                 jobRepository.save(job);
                 return job;
             }
