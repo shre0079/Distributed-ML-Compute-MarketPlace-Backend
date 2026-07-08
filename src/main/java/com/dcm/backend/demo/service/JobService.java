@@ -211,6 +211,7 @@ public class JobService {
                         "Job not found: " + jobId));
 
         workerService.validateWorker(job.workerId, workerSecret);
+        validateReportedRuntime(job, runtimeMs);
 
         if (job.status == JobStatus.TIMEOUT) return;
 
