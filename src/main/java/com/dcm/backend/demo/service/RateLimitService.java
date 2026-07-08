@@ -59,4 +59,11 @@ public class RateLimitService {
                 .addLimit(limit)
                 .build();
     }
+
+    private final Map<String, Bucket> fileUploadBuckets = new ConcurrentHashMap<>();
+
+    // 10 uploads per minute per user
+    public Bucket resolveFileUploadBucket(String userId) {
+        return fileUploadBuckets.computeIfAbsent(userId, k -> newBucket(10, Duration.ofMinutes(1)));
+    }
 }
