@@ -30,6 +30,9 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
 
+                        // Public GET access for downloading files
+                        .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
+
                         // Public endpoints — no token required
                         .requestMatchers(
                                 "/ping",
