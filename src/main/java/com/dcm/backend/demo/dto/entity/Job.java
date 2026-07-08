@@ -71,6 +71,8 @@ public class Job {
     @Column(nullable = false)
     public boolean networkRequired = false;
 
+    public long runningStartedAt = 0;
+
     public Job(String jobId, String dockerImage, String fileUrl,
                String userId, int maxRuntimeSeconds, boolean networkRequired) {
         this.jobId = jobId;
