@@ -207,7 +207,13 @@ public class AdminService {
         return w;
     }
 
-    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason) {
-        return walletService.rejectWithdrawal(withdrawalId, reason);
+    public WithdrawalRequest rejectWithdrawal(String withdrawalId, String reason, String adminUserId) {
+        WithdrawalRequest w = walletService.rejectWithdrawal(withdrawalId, reason);
+        recordAudit(adminUserId, "REJECT_WITHDRAWAL", withdrawalId, reason);
+        return w;
+    }
+
+    public Page<AdminAuditLog> getAuditLog(Pageable pageable) {
+        return auditLogRepository.findAll(pageable);
     }
 }
