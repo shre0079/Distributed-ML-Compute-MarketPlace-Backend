@@ -328,4 +328,20 @@ public class JobService {
 
         return job;
     }
+
+    private void validateReportedRuntime(Job job, long runtimeMs) {
+
+        long now = System.currentTimeMillis();
+        long serverElapsedMs = now - job.runningStartedAt;
+        long maxAllowedMs = (long) job.maxRuntimeSeconds * 1000;
+        long buffer = 5000; // grace for clock skew + network delivery delay
+
+        // Billing is calculated directly from runtimeMs — this is the one
+        // check that actually protects against a worker inflating their
+        // reported runtime to extract a bigger payout than they earned.
+        if (runtimeMs > serverElapsedMs + buffer || runtimeMs > maxAllowedMs + buffer) {
+            throw new IllegalArgumentException(
+                    "Reported runtime is not plausible for this job.");
+        }
+    }
 }
