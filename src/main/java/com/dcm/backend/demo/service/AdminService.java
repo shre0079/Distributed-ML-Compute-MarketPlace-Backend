@@ -43,6 +43,17 @@ public class AdminService {
         this.withdrawalRepository = withdrawalRepository;
     }
 
+    private void recordAudit(String adminUserId, String action, String targetId, String details) {
+        AdminAuditLog log = new AdminAuditLog();
+        log.auditId = UUID.randomUUID().toString();
+        log.adminUserId = adminUserId;
+        log.action = action;
+        log.targetId = targetId;
+        log.details = details;
+        log.timestamp = System.currentTimeMillis();
+        auditLogRepository.save(log);
+    }
+
     public Page<Job> getAllJobs(Pageable pageable) {
         return jobRepository.findAll(pageable);
     }
