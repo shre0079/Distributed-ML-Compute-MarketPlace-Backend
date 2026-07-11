@@ -52,7 +52,8 @@ public class SecurityConfig {
                                 "/workers/withdraw",
                                 "/workers/*/withdrawals",
                                 "/workers/rate",
-                                "/ws/**"
+                                "/ws/**",
+                                "/downloads/**"
                         ).permitAll()
 
                         .requestMatchers("/admin/**").hasRole("ADMIN")
