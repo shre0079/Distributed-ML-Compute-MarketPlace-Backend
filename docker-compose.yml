@@ -35,5 +35,12 @@ services:
       - ./artifacts:/app/artifacts
       - ./results:/app/results
 
+  frontend:
+      build: ./dcm-frontend
+      ports:
+        - "5173:80"
+      depends_on:
+        - backend
+
 volumes:
   postgres_data:
